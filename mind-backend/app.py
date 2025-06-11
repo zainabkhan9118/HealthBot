@@ -4,12 +4,21 @@ from transformers import pipeline
 from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 retriever = SentenceTransformer("all-MiniLM-L6-v2")
 generator = pipeline("text-generation", model="gpt2")
 index = faiss.read_index("mind_index.faiss")
 docs = open("mind_docs.txt").read().splitlines()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Or specify your frontend URL for more security
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class ChatInput(BaseModel):
     message: str
