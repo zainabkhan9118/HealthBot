@@ -14,22 +14,35 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSend = () => {
+  // Connect to FastAPI backend
+  const sendMessageToBackend = async (userMessage) => {
+    try {
+      const response = await fetch('http://127.0.0.1:8000/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage })
+      });
+      const data = await response.json();
+      return data.reply;
+    } catch (error) {
+      return 'Sorry, there was an error connecting to the server.';
+    }
+  };
+
+  const handleSend = async () => {
     if (!input.trim()) return;
-    
-    // Add user message
     setMessages(prev => [...prev, { role: 'user', content: input }]);
     setInput('');
     setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: 'I hear you. Would you like to tell me more about what\'s on your mind?'
-      }]);
+    try {
+      const reply = await sendMessageToBackend(input);
+      setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+    } catch (error) {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, there was an error.' }]);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleKeyPress = (e) => {
