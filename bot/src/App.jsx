@@ -1,17 +1,19 @@
 import { ThemeProvider } from "@/components/theme-provider"
 import Layout from "./layout"
-import { ModeToggle } from "./components/mode-toggle"
 import {BrowserRouter as Router, Route, Routes} from 'react-router-dom'
 import HomePage from "./pages/Home"
 import Login from "./pages/Login"
 import Signup from "./pages/Signup"
 import Dashboard from "./pages/Dashboard"
 import Chat from "./pages/Chat"
-
+import Settings from "./pages/Settings"
+import Progress from "./pages/Progress"
+import Journal from "./pages/Journal"
+import Resources from "./pages/Resources"
 function App() {
   return (
     <>
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+    <ThemeProvider defaultTheme="Light" storageKey="vite-ui-theme">
     <Router>
       <Routes>
         <Route path="/" element={<HomePage />} />
@@ -21,6 +23,10 @@ function App() {
         <Route path="/dashboard" element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="chat" element={<Chat />} />
+          <Route path="settings" element={<Settings/>} />
+          <Route path="progress" element={<Progress />} />
+          <Route path="journal" element={<Journal />} />
+          <Route path="resources" element={<Resources />} />
         </Route>
       </Routes>
       </Router>

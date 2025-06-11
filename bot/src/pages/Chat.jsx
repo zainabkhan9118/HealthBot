@@ -39,11 +39,11 @@ export default function Chat() {
     }
   };
 
-  return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-[#E6E6FA]/30 to-white">
+  return (    
+  <div className="flex flex-col h-screen bg-gradient-to-br from-[#E6E6FA]/30 to-white">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm p-6 border-b border-[#E6E6FA] sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto flex justify-between items-center">
+        <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-2">
             <Bot className="h-6 w-6 text-[#9B7EDC]" />
             <h1 className="text-xl font-semibold text-[#8B6AD1]">Chat with MIND</h1>
@@ -113,7 +113,7 @@ export default function Chat() {
       </div>
 
       {/* Chat Input */}
-      <div className="border-t border-[#E6E6FA] bg-white p-4">
+      <div className="border-t border-[#E6E6FA] bg-white p-4 text-black">
         <div className="max-w-4xl mx-auto">
           <div className="flex space-x-4">
             <Input

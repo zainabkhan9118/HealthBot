@@ -28,7 +28,7 @@ export default function Dashboard() {
           <p className="text-sm text-[#9B7EDC]">How are you feeling today?</p>
         </div>
         <div className="flex space-x-3">
-          <Link to="/settings">
+          <Link to="/dashboard/settings">
             <Button 
               variant="ghost" 
               size="sm"
