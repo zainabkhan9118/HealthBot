@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Send, Bot, User, RefreshCw } from 'lucide-react';
+import { Send, Bot, User, RefreshCw, Info } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function Chat() {
   const [messages, setMessages] = useState([
@@ -13,19 +15,37 @@ export default function Chat() {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [sentiment, setSentiment] = useState(null);
+  const [sources, setSources] = useState([]);
 
-  // Connect to FastAPI backend
+  // Connect to Flask backend with Ollama integration
   const sendMessageToBackend = async (userMessage) => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/chat', {
+      const response = await fetch('http://127.0.0.1:5000/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMessage })
       });
+      
+      if (!response.ok) {
+        throw new Error(`Server responded with status ${response.status}`);
+      }
+      
       const data = await response.json();
-      return data.reply;
+      
+      // Store sentiment and sources for UI display
+      if (data.sentiment) {
+        setSentiment(data.sentiment);
+      }
+      
+      if (data.sources && Array.isArray(data.sources)) {
+        setSources(data.sources);
+      }
+      
+      return data.response || 'Sorry, I couldn\'t process your request.';
     } catch (error) {
-      return 'Sorry, there was an error connecting to the server.';
+      console.error('Error connecting to the server:', error);
+      return 'Sorry, there was an error connecting to the server. Make sure the backend is running.';
     }
   };
 
@@ -34,12 +54,14 @@ export default function Chat() {
     setMessages(prev => [...prev, { role: 'user', content: input }]);
     setInput('');
     setIsLoading(true);
+    setSentiment(null);
+    setSources([]);
 
     try {
       const reply = await sendMessageToBackend(input);
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, there was an error.' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, there was an error connecting to the server. Please make sure the backend is running.' }]);
     } finally {
       setIsLoading(false);
     }
@@ -50,6 +72,20 @@ export default function Chat() {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const getSentimentColor = (sentiment) => {
+    if (!sentiment) return 'bg-gray-200';
+    
+    const sentimentValue = sentiment.sentiment?.toLowerCase();
+    
+    if (sentimentValue?.includes('very negative')) return 'bg-red-500 text-white';
+    if (sentimentValue?.includes('negative')) return 'bg-orange-500 text-white';
+    if (sentimentValue?.includes('neutral')) return 'bg-blue-200';
+    if (sentimentValue?.includes('positive')) return 'bg-green-400';
+    if (sentimentValue?.includes('very positive')) return 'bg-green-600 text-white';
+    
+    return 'bg-gray-200';
   };
 
   return (    
@@ -65,7 +101,11 @@ export default function Chat() {
             variant="ghost"
             size="sm"
             className="text-[#9B7EDC] hover:bg-[#E6E6FA]/50"
-            onClick={() => setMessages([messages[0]])}
+            onClick={() => {
+              setMessages([messages[0]]);
+              setSentiment(null);
+              setSources([]);
+            }}
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             New Chat
@@ -97,6 +137,46 @@ export default function Chat() {
                   <p className={message.role === 'user' ? 'text-white' : 'text-[#9B7EDC]'}>
                     {message.content}
                   </p>
+                  
+                  {/* Display sentiment and sources only for the last assistant message */}
+                  {message.role === 'assistant' && index === messages.length - 1 && sentiment && (
+                    <div className="mt-3 pt-2 border-t border-[#E6E6FA] text-sm">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <span className="text-gray-500 text-xs">Sentiment:</span>
+                        <Badge className={`${getSentimentColor(sentiment)}`}>
+                          {sentiment.sentiment || 'Unknown'}
+                        </Badge>
+                        
+                        {sentiment.emotions && sentiment.emotions.length > 0 && (
+                          <div className="flex flex-wrap gap-1 ml-1">
+                            {sentiment.emotions.map((emotion, i) => (
+                              <Badge key={i} variant="outline" className="text-xs">
+                                {emotion}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                        {sources && sources.length > 0 && (
+                        <div className="mt-2">
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <div className="flex items-center text-xs text-gray-500 mb-1 cursor-help">
+                                <Info className="h-3 w-3 mr-1" />
+                                <span>Sources:</span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>Resources used to generate this response</TooltipContent>
+                          </Tooltip>
+                          <ul className="list-disc pl-4 text-xs text-gray-600">
+                            {sources.map((source, i) => (
+                              <li key={i}>{source}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
               {message.role === 'user' && (
