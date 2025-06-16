@@ -69,51 +69,76 @@ def query_ollama(prompt: str, system_prompt: Optional[str] = None) -> Dict[str, 
     else:
         return {"error": f"Failed to query Ollama: {response.text}"}
 
+def is_roman_urdu(text: str) -> bool:
+    """
+    Detect if text is likely Roman Urdu based on common patterns and words.
+    This is a simple heuristic approach and not 100% accurate.
+    """
+    # Common Roman Urdu words and patterns
+    urdu_patterns = [
+        'kya', 'hai', 'aap', 'main', 'hoon', 'kaise', 'kaisa', 'ap', 'tum', 'mein',
+        'kia', 'ho', 'ka', 'ki', 'se', 'ko', 'ne', 'keh', 'aur', 'per', 'par',
+        'jee', 'ji', 'han', 'nahi', 'bilkul', 'bohat', 'bohot', 'theek', 'thik',
+        'shukriya', 'mehrbani', 'acha', 'accha', 'salaam', 'assalam', 'walaikum',
+        'kuch', 'karna', 'raha', 'gaye', 'tha', 'hai', 'hain', 'hogya', 'huwa',
+        'mujhe', 'tumhe', 'apko', 'apka', 'mera', 'hamara', 'ye', 'yeh', 'wo', 'woh'
+    ]
+    
+    # Convert to lowercase and split into words
+    words = text.lower().split()
+    
+    # Count words that match Roman Urdu patterns
+    urdu_word_count = sum(1 for word in words if word in urdu_patterns)
+    
+    # If more than 20% of words match patterns, likely Roman Urdu
+    return urdu_word_count / max(len(words), 1) > 0.2
+
 def analyze_sentiment(text: str) -> Dict[str, Any]:
     """Analyze the sentiment of the user's message using Ollama."""
-    prompt = f"""Analyze the sentiment in this text and categorize it as one of: 
-    'very negative', 'negative', 'neutral', 'positive', or 'very positive'.
-    Also extract any emotions expressed (like sadness, anxiety, joy, etc.).
-    Format the response as JSON with keys 'sentiment' and 'emotions'.
+    # For very short messages or greetings, don't do sentiment analysis
+    if len(text.split()) < 5:
+        return {
+            "sentiment": "neutral",
+            "emotions": []
+        }
     
-    Text to analyze: "{text}"
+    prompt = f"""Analyze the sentiment in this text as concisely as possible:
+    1. Categorize overall sentiment as: 'very negative', 'negative', 'neutral', 'positive', or 'very positive'
+    2. List up to 2 dominant emotions (like sadness, anxiety, joy, etc.)
+    
+    Format as simple JSON: {{"sentiment": "category", "emotions": ["emotion1", "emotion2"]}}
+    
+    Text: "{text}"
     """
     
-    system_prompt = "You are a helpful sentiment analysis assistant. Only respond with the JSON object."
+    system_prompt = "You are a focused sentiment analyzer. Respond ONLY with the requested JSON format - nothing else."
     
     response = query_ollama(prompt, system_prompt)
     result_text = response.get("response", "")
     
     # Try to extract JSON from the response
     try:
+        # Clean the text first to handle common formatting issues
+        cleaned_text = result_text.replace('```json', '').replace('```', '').strip()
+        
         # Find JSON pattern in the response
-        json_match = re.search(r'{[\s\S]*}', result_text)
+        json_match = re.search(r'{[\s\S]*}', cleaned_text)
         if json_match:
             json_str = json_match.group(0)
             sentiment_data = json.loads(json_str)
             return sentiment_data
         else:
-            # Fallback parsing
-            lines = result_text.split('\n')
-            sentiment = ""
-            emotions = []
-            
-            for line in lines:
-                if "sentiment" in line.lower():
-                    sentiment = line.split(':')[-1].strip().strip('"\'.,')
-                if "emotions" in line.lower():
-                    emotions_text = line.split(':')[-1].strip().strip('"\'.,[]')
-                    emotions = [e.strip().strip('"\'.,') for e in emotions_text.split(',')]
-            
+            # Simplified fallback for robustness
             return {
-                "sentiment": sentiment,
-                "emotions": emotions
+                "sentiment": "neutral" if "negative" not in result_text.lower() else "negative",
+                "emotions": []
             }
     except Exception as e:
+        print(f"Error parsing sentiment: {e}")
+        print(f"Raw response: {result_text}")
         return {
-            "sentiment": "unknown",
-            "emotions": [],
-            "error": str(e)
+            "sentiment": "neutral",
+            "emotions": []
         }
 
 @app.route('/', methods=['GET'])
@@ -139,6 +164,9 @@ def chat():
     
     user_message = data['message']
     
+    # Detect if the message is in Roman Urdu
+    is_urdu = is_roman_urdu(user_message)
+    
     # Analyze sentiment
     sentiment_analysis = analyze_sentiment(user_message)
     
@@ -149,34 +177,97 @@ def chat():
     context = "\n".join(relevant_docs)
     
     # Create a prompt with the context
-    system_prompt = """You are an empathetic AI mental health assistant called Mind Helper. 
-    Your goal is to provide supportive, understanding responses. 
-    Never claim to be a doctor or therapist, but offer evidence-based techniques.
+    system_prompt = """You are Emma, a friendly and empathetic mental health companion. 
+    Keep your responses concise (2-3 sentences maximum), conversational, and natural like a supportive friend.
+    Add a touch of warmth and personality - use casual language, occasional emojis, and conversational phrases.
+    For simple greetings, respond naturally without clinical language.
+    Never claim to be a doctor or therapist, but draw from evidence-based techniques when appropriate.
     If the user expresses serious issues like suicidal thoughts, encourage them to seek professional help immediately.
-    Keep your responses compassionate, non-judgmental, and helpful."""
     
-    # Determine the appropriate prompt based on sentiment
-    if 'negative' in sentiment_analysis.get('sentiment', '').lower():
-        prompt = f"""The user seems to be expressing negative emotions. They said: "{user_message}"
+    IMPORTANT: If the user writes in Roman Urdu (Urdu written with Latin script), respond in the same Roman Urdu style.
+    Match their language style, vocabulary, and informal conversational tone when replying in Roman Urdu."""
+    
+    # Check message type
+    greeting_phrases = ["hello", "hi", "hey", "good morning", "good afternoon", "good evening", "what's up", 
+                       "aoa", "salam", "assalamualaikum", "assalam o alaikum", "salam", "kya hal hai", "kaise ho"]
+    about_bot_phrases = ["who are you", "what are you", "how do you work", "what is this", "what can you do", 
+                         "tell me about yourself", "who created you", "what's your name", "what is your name",
+                         "tum kon ho", "ap kon ho", "tum kya ho", "ap kya ho", "tumhara nam kya hai", "ap ka nam kya hai"]
+    
+    is_simple_greeting = any(greeting in user_message.lower() for greeting in greeting_phrases) and len(user_message.split()) < 5
+    is_about_bot = any(phrase in user_message.lower() for phrase in about_bot_phrases)
+    
+    # Language instruction based on detected language
+    language_instruction = ""
+    if is_urdu:
+        language_instruction = "The user is writing in Roman Urdu. RESPOND IN ROMAN URDU using similar casual style and vocabulary. "
+        language_instruction += "Use friendly, conversational Roman Urdu phrases and expressions like 'Kya haal hai', 'Aap kaise hain', etc."
+    
+    # Determine the appropriate prompt based on message content
+    if is_about_bot:
+        # For questions about the bot itself
+        prompt = f"""{language_instruction}The user is asking about who you are or how you work.
         
-        Based on this context and their message, provide a compassionate, helpful response:
+        Respond in a friendly, concise way (2-3 sentences). Explain that you're Emma, a supportive AI companion 
+        built to provide mental wellness support through conversation. Mention that you can listen, offer suggestions
+        based on evidence-backed wellness practices, and provide a friendly space to talk.
+        Keep it simple, warm and conversational."""
+    elif is_simple_greeting:
+        # For simple greetings, keep it natural and ask about their day
+        prompt = f"""{language_instruction}The user said: "{user_message}"
+        
+        Respond in a warm, friendly manner like a thoughtful friend would. Acknowledge their greeting and ask about their day or how they're feeling.
+        Keep it short (1-2 sentences) and conversational, like texting a friend."""
+    elif 'negative' in sentiment_analysis.get('sentiment', '').lower():
+        prompt = f"""{language_instruction}The user seems to be expressing negative emotions. They said: "{user_message}"
+        
+        Based on this relevant information:
         {context}
         
-        First acknowledge their feelings, then offer 1-2 specific suggestions from the context that might help them."""
+        Respond like a supportive friend in 2-3 short sentences. First, briefly acknowledge their feelings with empathy, then offer one specific helpful suggestion.
+        Be conversational and natural - like texting a supportive friend."""
     else:
-        prompt = f"""The user said: "{user_message}"
+        prompt = f"""{language_instruction}The user said: "{user_message}"
         
-        Based on this context and their message, provide a supportive response:
-        {context}"""
+        Based on this relevant information (if applicable):
+        {context}
+        
+        Respond in a conversational, warm tone in 2-3 short sentences maximum. Be natural and friendly, like texting a good friend."""
     
     # Query Ollama
     response = query_ollama(prompt, system_prompt)
     
+    # Get response text
+    response_text = response.get("response", "I'm sorry, I couldn't process your request.")
+    
+    # Clean up response to remove any markdown formatting or unnecessary prefixes
+    cleaned_response = response_text
+    # Remove any "AI:" or "Emma:" prefixes that might appear
+    cleaned_response = re.sub(r'^(AI:|Emma:)\s*', '', cleaned_response)
+    # Remove markdown code blocks
+    cleaned_response = re.sub(r'```[\s\S]*?```', '', cleaned_response)
+    
+    # For Roman Urdu, use different sentence splitting - periods followed by spaces,
+    # but also consider '!' and '?' as sentence separators
+    if is_urdu:
+        # Trim to a reasonable length if it's too verbose
+        if len(cleaned_response.split()) > 80:  # If more than ~80 words
+            sentences = re.split(r'(?<=[.!؟?])\s+', cleaned_response)
+            if len(sentences) > 3:
+                cleaned_response = ' '.join(sentences[:3]) + '.'
+    else:
+        # Trim to a reasonable length for English
+        if len(cleaned_response.split()) > 80:  # If more than ~80 words
+            sentences = re.split(r'(?<=[.!?])\s+', cleaned_response)
+            if len(sentences) > 3:
+                cleaned_response = ' '.join(sentences[:3]) + '.'
+    
     # Prepare the response
     result = {
-        "response": response.get("response", "I'm sorry, I couldn't process your request."),
+        "response": cleaned_response.strip(),
         "sentiment": sentiment_analysis,
-        "sources": relevant_docs
+        "sources": relevant_docs,
+        "language": "roman_urdu" if is_urdu else "english"
     }
     
     return jsonify(result)
