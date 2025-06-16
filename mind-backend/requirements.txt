@@ -1,5 +1,7 @@
-fastapi
-uvicorn
+flask
+flask-cors
+requests
 transformers
 sentence-transformers
 faiss-cpu
+numpy
