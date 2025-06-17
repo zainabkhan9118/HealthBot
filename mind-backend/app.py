@@ -69,29 +69,7 @@ def query_ollama(prompt: str, system_prompt: Optional[str] = None) -> Dict[str, 
     else:
         return {"error": f"Failed to query Ollama: {response.text}"}
 
-def is_roman_urdu(text: str) -> bool:
-    """
-    Detect if text is likely Roman Urdu based on common patterns and words.
-    This is a simple heuristic approach and not 100% accurate.
-    """
-    # Common Roman Urdu words and patterns
-    urdu_patterns = [
-        'kya', 'hai', 'aap', 'main', 'hoon', 'kaise', 'kaisa', 'ap', 'tum', 'mein',
-        'kia', 'ho', 'ka', 'ki', 'se', 'ko', 'ne', 'keh', 'aur', 'per', 'par',
-        'jee', 'ji', 'han', 'nahi', 'bilkul', 'bohat', 'bohot', 'theek', 'thik',
-        'shukriya', 'mehrbani', 'acha', 'accha', 'salaam', 'assalam', 'walaikum',
-        'kuch', 'karna', 'raha', 'gaye', 'tha', 'hai', 'hain', 'hogya', 'huwa',
-        'mujhe', 'tumhe', 'apko', 'apka', 'mera', 'hamara', 'ye', 'yeh', 'wo', 'woh'
-    ]
-    
-    # Convert to lowercase and split into words
-    words = text.lower().split()
-    
-    # Count words that match Roman Urdu patterns
-    urdu_word_count = sum(1 for word in words if word in urdu_patterns)
-    
-    # If more than 20% of words match patterns, likely Roman Urdu
-    return urdu_word_count / max(len(words), 1) > 0.2
+
 
 def analyze_sentiment(text: str) -> Dict[str, Any]:
     """Analyze the sentiment of the user's message using Ollama."""
@@ -164,9 +142,6 @@ def chat():
     
     user_message = data['message']
     
-    # Detect if the message is in Roman Urdu
-    is_urdu = is_roman_urdu(user_message)
-    
     # Analyze sentiment
     sentiment_analysis = analyze_sentiment(user_message)
     
@@ -182,26 +157,18 @@ def chat():
     Add a touch of warmth and personality - use casual language, occasional emojis, and conversational phrases.
     For simple greetings, respond naturally without clinical language.
     Never claim to be a doctor or therapist, but draw from evidence-based techniques when appropriate.
-    If the user expresses serious issues like suicidal thoughts, encourage them to seek professional help immediately.
-    
-    IMPORTANT: If the user writes in Roman Urdu (Urdu written with Latin script), respond in the same Roman Urdu style.
-    Match their language style, vocabulary, and informal conversational tone when replying in Roman Urdu."""
+    If the user expresses serious issues like suicidal thoughts, encourage them to seek professional help immediately."""
     
     # Check message type
-    greeting_phrases = ["hello", "hi", "hey", "good morning", "good afternoon", "good evening", "what's up", 
-                       "aoa", "salam", "assalamualaikum", "assalam o alaikum", "salam", "kya hal hai", "kaise ho"]
+    greeting_phrases = ["hello", "hi", "hey", "good morning", "good afternoon", "good evening", "what's up"]
     about_bot_phrases = ["who are you", "what are you", "how do you work", "what is this", "what can you do", 
-                         "tell me about yourself", "who created you", "what's your name", "what is your name",
-                         "tum kon ho", "ap kon ho", "tum kya ho", "ap kya ho", "tumhara nam kya hai", "ap ka nam kya hai"]
+                         "tell me about yourself", "who created you", "what's your name", "what is your name"]
     
     is_simple_greeting = any(greeting in user_message.lower() for greeting in greeting_phrases) and len(user_message.split()) < 5
     is_about_bot = any(phrase in user_message.lower() for phrase in about_bot_phrases)
     
-    # Language instruction based on detected language
+    # Set empty language instruction as we're only using English now
     language_instruction = ""
-    if is_urdu:
-        language_instruction = "The user is writing in Roman Urdu. RESPOND IN ROMAN URDU using similar casual style and vocabulary. "
-        language_instruction += "Use friendly, conversational Roman Urdu phrases and expressions like 'Kya haal hai', 'Aap kaise hain', etc."
     
     # Determine the appropriate prompt based on message content
     if is_about_bot:
@@ -247,27 +214,17 @@ def chat():
     # Remove markdown code blocks
     cleaned_response = re.sub(r'```[\s\S]*?```', '', cleaned_response)
     
-    # For Roman Urdu, use different sentence splitting - periods followed by spaces,
-    # but also consider '!' and '?' as sentence separators
-    if is_urdu:
-        # Trim to a reasonable length if it's too verbose
-        if len(cleaned_response.split()) > 80:  # If more than ~80 words
-            sentences = re.split(r'(?<=[.!؟?])\s+', cleaned_response)
-            if len(sentences) > 3:
-                cleaned_response = ' '.join(sentences[:3]) + '.'
-    else:
-        # Trim to a reasonable length for English
-        if len(cleaned_response.split()) > 80:  # If more than ~80 words
-            sentences = re.split(r'(?<=[.!?])\s+', cleaned_response)
-            if len(sentences) > 3:
-                cleaned_response = ' '.join(sentences[:3]) + '.'
+    # Trim to a reasonable length for English
+    if len(cleaned_response.split()) > 80:  # If more than ~80 words
+        sentences = re.split(r'(?<=[.!?])\s+', cleaned_response)
+        if len(sentences) > 3:
+            cleaned_response = ' '.join(sentences[:3]) + '.'
     
     # Prepare the response
     result = {
         "response": cleaned_response.strip(),
         "sentiment": sentiment_analysis,
-        "sources": relevant_docs,
-        "language": "roman_urdu" if is_urdu else "english"
+        "sources": relevant_docs
     }
     
     return jsonify(result)
