@@ -74,19 +74,19 @@ export default function Chat() {
     }
   };
 
-  const getSentimentColor = (sentiment) => {
-    if (!sentiment) return 'bg-gray-200';
+  // const getSentimentColor = (sentiment) => {
+  //   if (!sentiment) return 'bg-gray-200';
     
-    const sentimentValue = sentiment.sentiment?.toLowerCase();
+  //   const sentimentValue = sentiment.sentiment?.toLowerCase();
     
-    if (sentimentValue?.includes('very negative')) return 'bg-red-500 text-white';
-    if (sentimentValue?.includes('negative')) return 'bg-orange-500 text-white';
-    if (sentimentValue?.includes('neutral')) return 'bg-blue-200';
-    if (sentimentValue?.includes('positive')) return 'bg-green-400';
-    if (sentimentValue?.includes('very positive')) return 'bg-green-600 text-white';
+  //   if (sentimentValue?.includes('very negative')) return 'bg-red-500 text-white';
+  //   if (sentimentValue?.includes('negative')) return 'bg-orange-500 text-white';
+  //   if (sentimentValue?.includes('neutral')) return 'bg-blue-200';
+  //   if (sentimentValue?.includes('positive')) return 'bg-green-400';
+  //   if (sentimentValue?.includes('very positive')) return 'bg-green-600 text-white';
     
-    return 'bg-gray-200';
-  };
+  //   return 'bg-gray-200';
+  // };
 
   return (    
   <div className="flex flex-col h-screen bg-gradient-to-br from-[#E6E6FA]/30 to-white">
@@ -127,8 +127,7 @@ export default function Chat() {
                 <div className="w-8 h-8 rounded-full bg-[#9B7EDC]/10 flex items-center justify-center">
                   <Bot className="h-5 w-5 text-[#9B7EDC]" />
                 </div>
-              )}
-              <Card className={`${
+              )}              <Card className={`${
                 message.role === 'user'
                   ? 'bg-[#9B7EDC] text-white'
                   : 'border border-[#E6E6FA] bg-white'
@@ -139,6 +138,7 @@ export default function Chat() {
                   </p>
                   
                   {/* Display sentiment and sources only for the last assistant message */}
+                  {/* Sentiment display commented out
                   {message.role === 'assistant' && index === messages.length - 1 && sentiment && (
                     <div className="mt-3 pt-2 border-t border-[#E6E6FA] text-sm">
                       <div className="flex items-center space-x-2 mb-1">
@@ -157,26 +157,28 @@ export default function Chat() {
                           </div>
                         )}
                       </div>
-                        {sources && sources.length > 0 && (
-                        <div className="mt-2">
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <div className="flex items-center text-xs text-gray-500 mb-1 cursor-help">
-                                <Info className="h-3 w-3 mr-1" />
-                                <span>Sources:</span>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>Resources used to generate this response</TooltipContent>
-                          </Tooltip>
-                          <ul className="list-disc pl-4 text-xs text-gray-600">
-                            {sources.map((source, i) => (
-                              <li key={i}>{source}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
                     </div>
                   )}
+                  */}
+                  
+                  {/* {message.role === 'assistant' && index === messages.length - 1 && sources && sources.length > 0 && (
+                    <div className="mt-2">
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <div className="flex items-center text-xs text-gray-500 mb-1 cursor-help">
+                            <Info className="h-3 w-3 mr-1" />
+                            <span>Sources:</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>Resources used to generate this response</TooltipContent>
+                      </Tooltip>
+                      <ul className="list-disc pl-4 text-xs text-gray-600">
+                        {sources.map((source, i) => (
+                          <li key={i}>{source}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )} */}
                 </CardContent>
               </Card>
               {message.role === 'user' && (
