@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { getMe } from '@/api/auth';
+import { getJournalEntries } from '@/api/journal';
 import {
   MessageSquareHeart,
   BookOpen,
@@ -14,16 +16,115 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartTooltip } from '@/components/ui/chart';
+import { Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 export default function Dashboard() {
+  const [userName, setUserName] = useState('');
+  const [journalEntries, setJournalEntries] = useState([]);
+  const [moodStats, setMoodStats] = useState({
+    positive: 0,
+    neutral: 0,
+    challenging: 0
+  });
+  const [chartData, setChartData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const res = await getMe(token);
+        if (res.success && res.data && res.data.name) {
+          setUserName(res.data.name);
+        }
+      }
+    };
+    fetchUser();
+  }, []);
+
+  useEffect(() => {
+    const fetchJournalEntries = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        setIsLoading(true);
+        try {
+          const response = await getJournalEntries(token);
+          if (response.success && Array.isArray(response.data)) {
+            setJournalEntries(response.data);
+            processJournalData(response.data);
+          }
+        } catch (error) {
+          console.error("Error fetching journal entries:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+    
+    fetchJournalEntries();
+  }, []);
+
+  const processJournalData = (entries) => {
+    // Process mood statistics
+    const positiveCount = entries.filter(entry => 
+      ["Very Happy", "Happy"].includes(entry.mood)
+    ).length;
+    
+    const neutralCount = entries.filter(entry => 
+      entry.mood === "Neutral"
+    ).length;
+    
+    const challengingCount = entries.filter(entry => 
+      ["Sad", "Depressed"].includes(entry.mood)
+    ).length;
+    
+    const total = entries.length;
+    
+    // Calculate percentages
+    const positive = total > 0 ? Math.round((positiveCount / total) * 100) : 0;
+    const neutral = total > 0 ? Math.round((neutralCount / total) * 100) : 0;
+    const challenging = total > 0 ? Math.round((challengingCount / total) * 100) : 0;
+    
+    setMoodStats({ positive, neutral, challenging });
+    
+    // Prepare chart data - last 7 entries or fewer
+    const last7Entries = entries
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 7)
+      .reverse();
+    
+    const chartData = last7Entries.map(entry => {
+      // Convert mood to numeric value for chart
+      let moodValue = 0;
+      switch(entry.mood) {
+        case "Very Happy": moodValue = 5; break;
+        case "Happy": moodValue = 4; break;
+        case "Neutral": moodValue = 3; break;
+        case "Sad": moodValue = 2; break;
+        case "Depressed": moodValue = 1; break;
+        default: moodValue = 3;
+      }
+      
+      const date = new Date(entry.date);
+      return {
+        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        mood: moodValue,
+        moodText: entry.mood
+      };
+    });
+    
+    setChartData(chartData);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#E6E6FA]/30 to-white text-[#9B7EDC] font-sans">
 
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm p-6 flex justify-between items-center sticky top-0 z-10 border-b border-[#E6E6FA]">
         <div>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-[#9B7EDC] to-[#E6E6FA] bg-clip-text text-transparent">
-            Welcome back, Zainab
+          <h1 className="text-2xl font-bold text-[#7C5DC7]">
+            Welcome back, {userName || 'User'}
           </h1>
           <p className="text-sm text-[#9B7EDC]">How are you feeling today?</p>
         </div>
@@ -37,12 +138,14 @@ export default function Dashboard() {
               <Settings className="h-4 w-4 mr-2" /> Settings
             </Button>
           </Link>
-          <Button 
-            size="sm" 
-            className="bg-[#9B7EDC] hover:bg-[#8B6AD1] text-white shadow-md shadow-[#E6E6FA]"
-          >
-            <HeartPulse className="h-4 w-4 mr-2" /> Check-in
-          </Button>
+          <Link to="/check-in">
+            <Button 
+              size="sm" 
+              className="bg-[#9B7EDC] hover:bg-[#8B6AD1] text-white shadow-md shadow-[#E6E6FA]"
+            >
+              <HeartPulse className="h-4 w-4 mr-2" /> Check-in
+            </Button>
+          </Link>
         </div>
       </header>
 
@@ -122,24 +225,96 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="h-64 bg-[#E6E6FA]/50 rounded-lg flex items-center justify-center">
-                  <div className="text-center p-6">
-                    <BrainCircuit className="h-12 w-12 text-[#9B7EDC] mx-auto mb-3" />
-                    <p className="text-[#9B7EDC]">Your mood chart will appear here</p>
+                {isLoading ? (
+                  <div className="h-64 bg-[#E6E6FA]/50 rounded-lg flex items-center justify-center">
+                    <div className="text-center p-6">
+                      <BrainCircuit className="h-12 w-12 text-[#9B7EDC] mx-auto mb-3 animate-pulse" />
+                      <p className="text-[#9B7EDC]">Loading your mood data...</p>
+                    </div>
                   </div>
-                </div>
+                ) : chartData.length === 0 ? (
+                  <div className="h-64 bg-[#E6E6FA]/50 rounded-lg flex items-center justify-center">
+                    <div className="text-center p-6">
+                      <BrainCircuit className="h-12 w-12 text-[#9B7EDC] mx-auto mb-3" />
+                      <p className="text-[#9B7EDC]">No mood data available yet</p>
+                      <Link to="/journal">
+                        <Button 
+                          variant="link" 
+                          size="sm" 
+                          className="text-[#9B7EDC] hover:text-[#8B6AD1] px-0 mt-2"
+                        >
+                          Add a journal entry →
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-64 bg-[#E6E6FA]/50 rounded-lg">
+                    <div style={{ width: '100%', height: '100%' }}>
+                      <Line
+                        width={800}
+                        height={256}
+                        data={chartData}
+                        margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                        type="monotone"
+                        dataKey="mood"
+                        stroke="#9B7EDC"
+                        strokeWidth={3}
+                        activeDot={{ r: 6, fill: '#9B7EDC' }}
+                      >
+                        <CartesianGrid vertical={false} opacity={0.2} />
+                        <XAxis 
+                          dataKey="date"
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fill: '#9B7EDC' }}
+                        />
+                        <YAxis
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fill: '#9B7EDC' }}
+                          domain={[1, 5]}
+                          ticks={[1, 2, 3, 4, 5]}
+                          tickFormatter={(value) => {
+                            const labels = {
+                              1: 'Depressed',
+                              2: 'Sad',
+                              3: 'Neutral',
+                              4: 'Happy',
+                              5: 'Very Happy'
+                            };
+                            return labels[value] || '';
+                          }}
+                        />
+                        <ChartTooltip
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="bg-white/90 dark:bg-gray-900/90 border border-[#E6E6FA] p-2 rounded-lg shadow-sm">
+                                  <p className="text-[#9B7EDC] font-medium">{payload[0].payload.date}</p>
+                                  <p className="text-[#8B6AD1]">Mood: {payload[0].payload.moodText}</p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                      </Line>
+                    </div>
+                  </div>
+                )}
                 <div className="mt-4 grid grid-cols-3 gap-4 text-center">
                   <div className="p-3 rounded-lg bg-[#E6E6FA]/50">
                     <p className="text-sm text-[#9B7EDC]">Positive</p>
-                    <p className="text-xl font-medium text-[#8B6AD1]">42%</p>
+                    <p className="text-xl font-medium text-[#8B6AD1]">{moodStats.positive}%</p>
                   </div>
                   <div className="p-3 rounded-lg bg-[#E6E6FA]/50">
                     <p className="text-sm text-[#9B7EDC]">Neutral</p>
-                    <p className="text-xl font-medium text-[#9B7EDC]">35%</p>
+                    <p className="text-xl font-medium text-[#9B7EDC]">{moodStats.neutral}%</p>
                   </div>
                   <div className="p-3 rounded-lg bg-[#E6E6FA]/50">
                     <p className="text-sm text-[#9B7EDC]">Challenging</p>
-                    <p className="text-xl font-medium text-[#9B7EDC]">23%</p>
+                    <p className="text-xl font-medium text-[#9B7EDC]">{moodStats.challenging}%</p>
                   </div>
                 </div>
               </CardContent>

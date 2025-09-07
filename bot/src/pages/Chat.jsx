@@ -74,19 +74,19 @@ export default function Chat() {
     }
   };
 
-  // const getSentimentColor = (sentiment) => {
-  //   if (!sentiment) return 'bg-gray-200';
+  const getSentimentColor = (sentiment) => {
+    if (!sentiment) return 'bg-gray-200';
     
-  //   const sentimentValue = sentiment.sentiment?.toLowerCase();
+    const sentimentValue = sentiment.sentiment?.toLowerCase();
     
-  //   if (sentimentValue?.includes('very negative')) return 'bg-red-500 text-white';
-  //   if (sentimentValue?.includes('negative')) return 'bg-orange-500 text-white';
-  //   if (sentimentValue?.includes('neutral')) return 'bg-blue-200';
-  //   if (sentimentValue?.includes('positive')) return 'bg-green-400';
-  //   if (sentimentValue?.includes('very positive')) return 'bg-green-600 text-white';
+    if (sentimentValue?.includes('very negative')) return 'bg-red-500 text-white';
+    if (sentimentValue?.includes('negative')) return 'bg-orange-500 text-white';
+    if (sentimentValue?.includes('neutral')) return 'bg-blue-200';
+    if (sentimentValue?.includes('positive')) return 'bg-green-400';
+    if (sentimentValue?.includes('very positive')) return 'bg-green-600 text-white';
     
-  //   return 'bg-gray-200';
-  // };
+    return 'bg-gray-200';
+  };
 
   return (    
   <div className="flex flex-col h-screen bg-gradient-to-br from-[#E6E6FA]/30 to-white">
@@ -138,7 +138,6 @@ export default function Chat() {
                   </p>
                   
                   {/* Display sentiment and sources only for the last assistant message */}
-                  {/* Sentiment display commented out
                   {message.role === 'assistant' && index === messages.length - 1 && sentiment && (
                     <div className="mt-3 pt-2 border-t border-[#E6E6FA] text-sm">
                       <div className="flex items-center space-x-2 mb-1">
@@ -146,7 +145,6 @@ export default function Chat() {
                         <Badge className={`${getSentimentColor(sentiment)}`}>
                           {sentiment.sentiment || 'Unknown'}
                         </Badge>
-                        
                         {sentiment.emotions && sentiment.emotions.length > 0 && (
                           <div className="flex flex-wrap gap-1 ml-1">
                             {sentiment.emotions.map((emotion, i) => (
@@ -159,9 +157,7 @@ export default function Chat() {
                       </div>
                     </div>
                   )}
-                  */}
-                  
-                  {/* {message.role === 'assistant' && index === messages.length - 1 && sources && sources.length > 0 && (
+                  {message.role === 'assistant' && index === messages.length - 1 && sources && sources.length > 0 && (
                     <div className="mt-2">
                       <Tooltip>
                         <TooltipTrigger>
@@ -178,7 +174,7 @@ export default function Chat() {
                         ))}
                       </ul>
                     </div>
-                  )} */}
+                  )}
                 </CardContent>
               </Card>
               {message.role === 'user' && (

@@ -5,24 +5,55 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useNavigate } from 'react-router-dom';
+import { signup } from '@/api/auth';
 
 const Signup = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const navigate = useNavigate();
   
-  const handleSubmit = (e) => {
+  const validateEmail = (email) => {
+    return /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Validate passwords match
-    if (password !== confirmPassword) {
-      alert('Passwords do not match!');
+    setError('');
+    setSuccess('');
+    // Frontend validation
+    if (name.trim().length < 2) {
+      setError('Name must be at least 2 characters.');
       return;
     }
-    console.log('Signup attempt:', { name, email, password });
-    // Placeholder for signup logic
-    navigate('/dashboard');
+    if (!validateEmail(email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match!');
+      return;
+    }
+    try {
+      const res = await signup({ name, email, password });
+      if (res.success) {
+        setSuccess('Registration successful! Please log in.');
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
+      } else {
+        setError(res.message || res.error || 'Signup failed');
+      }
+    } catch (err) {
+      setError('Server error');
+    }
   };
 
   return (
@@ -86,6 +117,8 @@ const Signup = () => {
                   required
                 />
               </div>
+              {success && <div className="text-green-600 text-sm text-center">{success}</div>}
+              {error && <div className="text-red-500 text-sm text-center">{error}</div>}
               <Button 
                 type="submit" 
                 className="w-full bg-[#9B7EDC] hover:bg-[#8B6AD1] text-white"
