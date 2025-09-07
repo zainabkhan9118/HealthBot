@@ -1,21 +1,36 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useNavigate } from 'react-router-dom';
+import { signin } from '@/api/auth';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const navigate = useNavigate();
   
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Login attempt:', { email, password });
-    // Placeholder for login logic
-    navigate('/dashboard');
+    setError('');
+    setSuccess('');
+    try {
+      const res = await signin({ email, password });
+      if (res.success && res.token) {
+        localStorage.setItem('token', res.token);
+        setSuccess('Login successful! Redirecting...');
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1500);
+      } else {
+        setError(res.message || 'Login failed');
+      }
+    } catch (err) {
+      setError('Server error');
+    }
   };
 
   return (
@@ -57,6 +72,8 @@ const Login = () => {
                   required
                 />
               </div>
+              {success && <div className="text-green-600 text-sm text-center">{success}</div>}
+              {error && <div className="text-red-500 text-sm text-center">{error}</div>}
               <Button 
                 type="submit" 
                 className="w-full bg-[#9B7EDC] hover:bg-[#8B6AD1] text-white"
