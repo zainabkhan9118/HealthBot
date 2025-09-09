@@ -60,9 +60,13 @@ const Signup = () => {
     <div className='min-h-screen w-screen flex items-center justify-center bg-[#E6E6FA]/10'> 
      <div className='flex w-full max-w-sm flex-col gap-6'>
         {/* Logo */}
-        <div className="text-center">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-[#9B7EDC] to-[#E6E6FA] bg-clip-text text-transparent">MIND</h1>
-          <p className="text-sm text-[#9B7EDC] mt-1">Mental Intelligence for Nurturing Dialogue</p>
+        <div className="text-center mb-2">
+          <h1 className="text-4xl font-extrabold text-[#7C5DC7] drop-shadow-sm tracking-wide">
+            MIND
+          </h1>
+          <p className="text-base text-[#7C5DC7] mt-2 font-medium tracking-tight opacity-80">
+            Mental Intelligence for Nurturing Dialogue
+          </p>
         </div>
         
         {/* Form */}
