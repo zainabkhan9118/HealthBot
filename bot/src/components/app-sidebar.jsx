@@ -73,7 +73,7 @@ export function AppSidebar() {
       <SidebarContent className="relative z-10">
         <div className="flex justify-center my-6">
           <div className="text-center">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-[#9B7EDC] to-[#E6E6FA] bg-clip-text text-transparent">MIND</h1>
+            <h1 className="text-2xl font-bold bg-[#F5F0FF] bg-clip-text ">MIND</h1>
             <p className="text-xs text-sidebar-foreground/80">Mental Intelligence for Nurturing Dialogue</p>
           </div>
         </div>

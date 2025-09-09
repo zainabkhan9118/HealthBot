@@ -12,17 +12,21 @@ import Journal from "./pages/Journal"
 import Resources from "./pages/Resources"
 import CheckIn from "./pages/CheckIn"
 import CheckInHistory from "./pages/CheckInHistory"
+import { ChatProvider } from "@/context/ChatContext"
+import { AuthProvider } from "@/context/AuthContext"
 function App() {
   return (
     <>
     <ThemeProvider defaultTheme="Light" storageKey="vite-ui-theme">
     <Router>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/check-in" element={<CheckIn />} />
-        <Route path="/check-in-history" element={<CheckInHistory />} />
+      <AuthProvider>
+        <ChatProvider>
+          <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/check-in" element={<CheckIn />} />
+          <Route path="/check-in-history" element={<CheckInHistory />} />
         {/* Dashboard routes with layout */}
         <Route path="/dashboard" element={<Layout />}>
           <Route index element={<Dashboard />} />
@@ -33,6 +37,8 @@ function App() {
           <Route path="resources" element={<Resources />} />
         </Route>
       </Routes>
+        </ChatProvider>
+      </AuthProvider>
       </Router>
     </ThemeProvider>
     </>

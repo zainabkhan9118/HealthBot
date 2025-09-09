@@ -1,22 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Send, Bot, User, RefreshCw, Info } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { getUserChatMessages, saveUserMessage, saveAssistantMessage, clearChatHistory } from '@/api/chat';
+import AuthContext from '@/context/AuthContext';
+import ChatContext from '@/context/ChatContext';
+import ChatSidebar from '@/components/chat-sidebar';
 
 export default function Chat() {
-  const [messages, setMessages] = useState([
+  const { isAuthenticated } = useContext(AuthContext);
+  const { chats, activeChat, updateChat } = useContext(ChatContext);
+  
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [sentiment, setSentiment] = useState(null);
+  const [sources, setSources] = useState([]);
+  
+  // Get active chat messages
+  const activeMessages = chats.find(chat => chat.id === activeChat)?.messages || [
     {
       role: 'assistant',
       content: 'Hi there! I\'m MIND, your mental wellness companion. How are you feeling today?'
     }
-  ]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [sentiment, setSentiment] = useState(null);
-  const [sources, setSources] = useState([]);
+  ];
+
+  // Fetch user's chat history when component mounts
+  useEffect(() => {
+    console.log('Authentication status:', isAuthenticated);
+    if (isAuthenticated) {
+      fetchChatHistory();
+    } else {
+      console.warn('User is not authenticated - chat messages will not be saved');
+      setIsLoadingHistory(false);
+      
+      // Display an alert if running in development mode
+      if (process.env.NODE_ENV !== 'production') {
+        alert('You are not logged in. Your chat messages will not be saved.');
+      }
+    }
+  }, [isAuthenticated]);
+
+  const fetchChatHistory = async () => {
+    try {
+      setIsLoadingHistory(true);
+      const chatHistory = await getUserChatMessages();
+      
+      if (chatHistory && chatHistory.length > 0) {
+        // Update the current active chat with the fetched messages
+        updateChat(activeChat, {
+          messages: chatHistory
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch chat history:', error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
 
   // Connect to Flask backend with Ollama integration
   const sendMessageToBackend = async (userMessage) => {
@@ -42,26 +86,95 @@ export default function Chat() {
         setSources(data.sources);
       }
       
-      return data.response || 'Sorry, I couldn\'t process your request.';
+      return {
+        content: data.response || 'Sorry, I couldn\'t process your request.',
+        sentiment: data.sentiment,
+        sources: data.sources
+      };
     } catch (error) {
       console.error('Error connecting to the server:', error);
-      return 'Sorry, there was an error connecting to the server. Make sure the backend is running.';
+      return {
+        content: 'Sorry, there was an error connecting to the server. Make sure the backend is running.',
+        sentiment: null,
+        sources: []
+      };
     }
   };
 
   const handleSend = async () => {
     if (!input.trim()) return;
-    setMessages(prev => [...prev, { role: 'user', content: input }]);
+    
+    // Save user message to state first for immediate display
+    const userMessage = { role: 'user', content: input };
+    const updatedMessages = [...activeMessages, userMessage];
+    
+    // Update the chat with the new message
+    updateChat(activeChat, {
+      messages: updatedMessages,
+      // Update the title to the first user message if it doesn't have a custom title
+      title: updatedMessages.find(m => m.role === 'user')?.content.substring(0, 30) || 'New Chat'
+    });
+    
     setInput('');
     setIsLoading(true);
     setSentiment(null);
     setSources([]);
 
     try {
-      const reply = await sendMessageToBackend(input);
-      setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+      // Save user message to database if authenticated
+      if (isAuthenticated) {
+        console.log('Saving user message, authenticated =', isAuthenticated);
+        try {
+          const savedMessage = await saveUserMessage(input);
+          console.log('User message saved successfully:', savedMessage);
+        } catch (saveError) {
+          console.error('Failed to save user message:', saveError);
+        }
+      } else {
+        console.log('Not saving user message - user not authenticated');
+      }
+      
+      // Send message to backend for processing
+      const { content, sentiment, sources } = await sendMessageToBackend(input);
+      
+      // Update state with assistant's response
+      const assistantMessage = { 
+        role: 'assistant', 
+        content,
+        sentiment,
+        sources 
+      };
+      
+      // Update the chat with the assistant's response
+      updateChat(activeChat, {
+        messages: [...updatedMessages, assistantMessage]
+      });
+      
+      setSentiment(sentiment);
+      setSources(sources);
+      
+      // Save assistant message to database if authenticated
+      if (isAuthenticated) {
+        console.log('Saving assistant message, authenticated =', isAuthenticated);
+        try {
+          const savedAssistantMessage = await saveAssistantMessage(content, sentiment, sources);
+          console.log('Assistant message saved successfully:', savedAssistantMessage);
+        } catch (saveError) {
+          console.error('Failed to save assistant message:', saveError);
+        }
+      } else {
+        console.log('Not saving assistant message - user not authenticated');
+      }
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, there was an error connecting to the server. Please make sure the backend is running.' }]);
+      const errorMessage = { 
+        role: 'assistant', 
+        content: 'Sorry, there was an error connecting to the server. Please make sure the backend is running.' 
+      };
+      
+      // Update the chat with the error message
+      updateChat(activeChat, {
+        messages: [...updatedMessages, errorMessage]
+      });
     } finally {
       setIsLoading(false);
     }
@@ -88,143 +201,213 @@ export default function Chat() {
     return 'bg-gray-200';
   };
 
-  return (    
-  <div className="flex flex-col h-screen bg-gradient-to-br from-[#E6E6FA]/30 to-white">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm p-6 border-b border-[#E6E6FA] sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <Bot className="h-6 w-6 text-[#9B7EDC]" />
-            <h1 className="text-xl font-semibold text-[#8B6AD1]">Chat with MIND</h1>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-[#9B7EDC] hover:bg-[#E6E6FA]/50"
-            onClick={() => {
-              setMessages([messages[0]]);
-              setSentiment(null);
-              setSources([]);
-            }}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            New Chat
-          </Button>
-        </div>
-      </header>
-
-      {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="max-w-4xl mx-auto space-y-4">
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex items-start space-x-3 ${
-                message.role === 'user' ? 'justify-end' : ''
-              }`}
+  return (
+    <div className="flex h-screen bg-gradient-to-br from-[#E6E6FA]/30 to-white">
+      {/* Sidebar - sticky/fixed */}
+      <div className="sticky left-0 top-0 h-screen w-64 z-20">
+        <ChatSidebar />
+      </div>
+      {/* Main chat area */}
+      <div className="flex flex-col flex-1 ">
+        {/* Header - sticky */}
+        <header className="sticky top-0 bg-white/80 backdrop-blur-sm p-6 border-b border-[#E6E6FA] z-10">
+          <div className="max-w-6xl mx-auto flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <Bot className="h-6 w-6 text-[#9B7EDC]" />
+              <h1 className="text-xl font-semibold text-[#8B6AD1]">Chat with MIND</h1>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-[#9B7EDC] hover:bg-[#E6E6FA]/50"
+              onClick={async () => {
+                // Clear messages in active chat
+                updateChat(activeChat, {
+                  messages: [{
+                    role: 'assistant',
+                    content: 'Hi there! I\'m MIND, your mental wellness companion. How are you feeling today?'
+                  }],
+                  title: 'New Chat'
+                });
+                setSentiment(null);
+                setSources([]);
+                
+                // Clear messages in database if authenticated
+                if (isAuthenticated) {
+                  try {
+                    await clearChatHistory();
+                  } catch (error) {
+                    console.error('Failed to clear chat history:', error);
+                  }
+                }
+              }}
             >
-              {message.role === 'assistant' && (
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Reset Chat
+            </Button>
+          </div>
+        </header>
+        {/* Chat Messages - scrollable */}
+        <div className="flex-1 overflow-y-auto p-4 pb-24">
+          <div className="max-w-4xl mx-auto space-y-4">
+            {isLoadingHistory ? (
+              <div className="flex justify-center items-center h-32">
+                <div className="flex space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-[#9B7EDC] animate-bounce" />
+                  <div className="w-3 h-3 rounded-full bg-[#9B7EDC] animate-bounce delay-100" />
+                  <div className="w-3 h-3 rounded-full bg-[#9B7EDC] animate-bounce delay-200" />
+                </div>
+              </div>
+            ) : (
+              activeMessages.map((message, index) => (
+              <div
+                key={index}
+                className={`flex items-start space-x-3 ${
+                  message.role === 'user' ? 'justify-end' : ''
+                }`}
+              >
+                {message.role === 'assistant' && (
+                  <div className="w-8 h-8 rounded-full bg-[#9B7EDC]/10 flex items-center justify-center">
+                    <Bot className="h-5 w-5 text-[#9B7EDC]" />
+                  </div>
+                )}              <Card className={`${
+                  message.role === 'user'
+                    ? 'bg-[#9B7EDC] text-white'
+                    : 'border border-[#E6E6FA] bg-white'
+                } max-w-[80%]`}>
+                  <CardContent className="p-3">
+                    <p className={message.role === 'user' ? 'text-white' : 'text-[#9B7EDC]'}>
+                      {message.content}
+                    </p>
+                    
+                    {/* Display sentiment if available for this message */}
+                    {message.role === 'assistant' && message.sentiment && (
+                      <div className="mt-3 pt-2 border-t border-[#E6E6FA] text-sm">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <span className="text-gray-500 text-xs">Sentiment:</span>
+                          <Badge className={`${getSentimentColor(message.sentiment)}`}>
+                            {message.sentiment.sentiment || 'Unknown'}
+                          </Badge>
+                          {message.sentiment.emotions && message.sentiment.emotions.length > 0 && (
+                            <div className="flex flex-wrap gap-1 ml-1">
+                              {message.sentiment.emotions.map((emotion, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  {emotion}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {/* For the last message or messages with sentiment not yet stored */}
+                    {message.role === 'assistant' && index === activeMessages.length - 1 && !message.sentiment && sentiment && (
+                      <div className="mt-3 pt-2 border-t border-[#E6E6FA] text-sm">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <span className="text-gray-500 text-xs">Sentiment:</span>
+                          <Badge className={`${getSentimentColor(sentiment)}`}>
+                            {sentiment.sentiment || 'Unknown'}
+                          </Badge>
+                          {sentiment.emotions && sentiment.emotions.length > 0 && (
+                            <div className="flex flex-wrap gap-1 ml-1">
+                              {sentiment.emotions.map((emotion, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  {emotion}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {/* Display sources if available for this message */}
+                    {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
+                      <div className="mt-2">
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <div className="flex items-center text-xs text-gray-500 mb-1 cursor-help">
+                              <Info className="h-3 w-3 mr-1" />
+                              <span>Sources:</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>Resources used to generate this response</TooltipContent>
+                        </Tooltip>
+                        <ul className="list-disc pl-4 text-xs text-gray-600">
+                          {message.sources.map((source, i) => (
+                            <li key={i}>{source}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {/* For the last message or messages with sources not yet stored */}
+                    {message.role === 'assistant' && index === activeMessages.length - 1 && !message.sources && sources && sources.length > 0 && (
+                      <div className="mt-2">
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <div className="flex items-center text-xs text-gray-500 mb-1 cursor-help">
+                              <Info className="h-3 w-3 mr-1" />
+                              <span>Sources:</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>Resources used to generate this response</TooltipContent>
+                        </Tooltip>
+                        <ul className="list-disc pl-4 text-xs text-gray-600">
+                          {sources.map((source, i) => (
+                            <li key={i}>{source}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+                {message.role === 'user' && (
+                  <div className="w-8 h-8 rounded-full bg-[#9B7EDC] flex items-center justify-center">
+                    <User className="h-5 w-5 text-white" />
+                  </div>
+                )}
+              </div>
+            )))}
+            {isLoading && (
+              <div className="flex items-start space-x-3">
                 <div className="w-8 h-8 rounded-full bg-[#9B7EDC]/10 flex items-center justify-center">
                   <Bot className="h-5 w-5 text-[#9B7EDC]" />
                 </div>
-              )}              <Card className={`${
-                message.role === 'user'
-                  ? 'bg-[#9B7EDC] text-white'
-                  : 'border border-[#E6E6FA] bg-white'
-              } max-w-[80%]`}>
-                <CardContent className="p-3">
-                  <p className={message.role === 'user' ? 'text-white' : 'text-[#9B7EDC]'}>
-                    {message.content}
-                  </p>
-                  
-                  {/* Display sentiment and sources only for the last assistant message */}
-                  {message.role === 'assistant' && index === messages.length - 1 && sentiment && (
-                    <div className="mt-3 pt-2 border-t border-[#E6E6FA] text-sm">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <span className="text-gray-500 text-xs">Sentiment:</span>
-                        <Badge className={`${getSentimentColor(sentiment)}`}>
-                          {sentiment.sentiment || 'Unknown'}
-                        </Badge>
-                        {sentiment.emotions && sentiment.emotions.length > 0 && (
-                          <div className="flex flex-wrap gap-1 ml-1">
-                            {sentiment.emotions.map((emotion, i) => (
-                              <Badge key={i} variant="outline" className="text-xs">
-                                {emotion}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                <Card className="border border-[#E6E6FA] bg-white">
+                  <CardContent className="p-3">
+                    <div className="flex space-x-2">
+                      <div className="w-2 h-2 rounded-full bg-[#9B7EDC] animate-bounce" />
+                      <div className="w-2 h-2 rounded-full bg-[#9B7EDC] animate-bounce delay-100" />
+                      <div className="w-2 h-2 rounded-full bg-[#9B7EDC] animate-bounce delay-200" />
                     </div>
-                  )}
-                  {message.role === 'assistant' && index === messages.length - 1 && sources && sources.length > 0 && (
-                    <div className="mt-2">
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <div className="flex items-center text-xs text-gray-500 mb-1 cursor-help">
-                            <Info className="h-3 w-3 mr-1" />
-                            <span>Sources:</span>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>Resources used to generate this response</TooltipContent>
-                      </Tooltip>
-                      <ul className="list-disc pl-4 text-xs text-gray-600">
-                        {sources.map((source, i) => (
-                          <li key={i}>{source}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              {message.role === 'user' && (
-                <div className="w-8 h-8 rounded-full bg-[#9B7EDC] flex items-center justify-center">
-                  <User className="h-5 w-5 text-white" />
-                </div>
-              )}
-            </div>
-          ))}
-          {isLoading && (
-            <div className="flex items-start space-x-3">
-              <div className="w-8 h-8 rounded-full bg-[#9B7EDC]/10 flex items-center justify-center">
-                <Bot className="h-5 w-5 text-[#9B7EDC]" />
+                  </CardContent>
+                </Card>
               </div>
-              <Card className="border border-[#E6E6FA] bg-white">
-                <CardContent className="p-3">
-                  <div className="flex space-x-2">
-                    <div className="w-2 h-2 rounded-full bg-[#9B7EDC] animate-bounce" />
-                    <div className="w-2 h-2 rounded-full bg-[#9B7EDC] animate-bounce delay-100" />
-                    <div className="w-2 h-2 rounded-full bg-[#9B7EDC] animate-bounce delay-200" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Chat Input */}
-      <div className="border-t border-[#E6E6FA] bg-white p-4 text-black">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex space-x-4">
-            <Input
-              placeholder="Type your message..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              className="flex-1 border-[#E6E6FA] focus:ring-[#9B7EDC] focus:border-[#9B7EDC]"
-            />
-            <Button
-              onClick={handleSend}
-              disabled={!input.trim() || isLoading}
-              className="bg-[#9B7EDC] hover:bg-[#8B6AD1] text-white"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
+            )}
           </div>
-          <p className="text-xs text-[#9B7EDC]/60 mt-2 text-center">
-            Press Enter to send, Shift + Enter for new line
-          </p>
+        </div>
+        {/* Chat Input - fixed at bottom */}
+        <div className="sticky bottom-0 border-t border-[#E6E6FA] bg-white p-4 text-black z-10">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex space-x-4">
+              <Input
+                placeholder="Type your message..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                className="flex-1 border-[#E6E6FA] focus:ring-[#9B7EDC] focus:border-[#9B7EDC]"
+              />
+              <Button
+                onClick={handleSend}
+                disabled={!input.trim() || isLoading}
+                className="bg-[#9B7EDC] hover:bg-[#8B6AD1] text-white"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-[#9B7EDC]/60 mt-2 text-center">
+              Press Enter to send, Shift + Enter for new line
+            </p>
+          </div>
         </div>
       </div>
     </div>
