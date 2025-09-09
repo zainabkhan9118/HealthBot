@@ -38,17 +38,27 @@ def load_resources():
 
 index, documents, model = load_resources()
 
-def search_faiss(query: str, k: int = 3) -> List[str]:
+def search_faiss(query: str, k: int = 5) -> List[str]:
     """Search the FAISS index for similar documents to the query."""
     query_embedding = model.encode([query], convert_to_tensor=False)
     distances, indices = index.search(np.array(query_embedding), k)
     
-    results = []
-    for idx in indices[0]:
+    # Get unique results with their distances
+    unique_results = {}
+    for i, idx in enumerate(indices[0]):
         if idx < len(documents):
-            results.append(documents[idx])
+            doc = documents[idx]
+            # Only add if document content is different (avoid near duplicates)
+            # Use first 50 chars as a key to detect similar documents
+            doc_key = doc[:50]
+            if doc_key not in unique_results or distances[0][i] < unique_results[doc_key][1]:
+                unique_results[doc_key] = (doc, distances[0][i])
     
-    return results
+    # Sort by relevance (distance) and take top results
+    results = [doc for doc, _ in sorted(unique_results.values(), key=lambda x: x[1])]
+    
+    # Ensure we return at least 3 different sources if available
+    return results[:min(5, len(results))]
 
 def query_ollama(prompt: str, system_prompt: Optional[str] = None) -> Dict[str, Any]:
     """Query the Ollama API with the given prompt."""
@@ -80,9 +90,22 @@ def analyze_sentiment(text: str) -> Dict[str, Any]:
             "emotions": []
         }
     
-    prompt = f"""Analyze the sentiment in this text as concisely as possible:
+    # Pre-check for achievement statements
+    achievement_phrases = ["i landed", "i got", "i achieved", "i finished", "i completed", "i won", 
+                          "i succeeded", "i passed", "i made it", "i did it", "i accomplished"]
+    
+    if any(phrase in text.lower() for phrase in achievement_phrases):
+        # Likely a positive achievement statement
+        return {
+            "sentiment": "positive",
+            "emotions": ["pride", "joy"]
+        }
+    
+    prompt = f"""Analyze the sentiment in this text with particular attention to achievements and successes:
     1. Categorize overall sentiment as: 'very negative', 'negative', 'neutral', 'positive', or 'very positive'
-    2. List up to 2 dominant emotions (like sadness, anxiety, joy, etc.)
+    2. List up to 2 dominant emotions (like sadness, anxiety, joy, pride, satisfaction, etc.)
+    
+    Important: Messages about personal achievements, accomplishments, or good news should be categorized as 'positive' with emotions like 'pride', 'joy', or 'satisfaction'.
     
     Format as simple JSON: {{"sentiment": "category", "emotions": ["emotion1", "emotion2"]}}
     
