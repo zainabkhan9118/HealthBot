@@ -4,9 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Textarea } from "@/components/ui/textarea";
 import { getJournalEntries, addJournalEntry, updateJournalEntry, deleteJournalEntry } from "@/api/journal";
 import { useNavigate } from "react-router-dom";
-import { Pencil, Trash, X, Check } from "lucide-react";
+import { Pencil, Trash, X, Check, Plus, BookOpen, Calendar, Smile, ArrowLeft } from "lucide-react";
+
+const moodConfig = {
+  'Very Happy': { emoji: '😄', color: '#10b981', bgColor: '#d1fae5' },
+  'Happy': { emoji: '🙂', color: '#3b82f6', bgColor: '#dbeafe' },
+  'Neutral': { emoji: '😐', color: '#8b5cf6', bgColor: '#ede9fe' },
+  'Sad': { emoji: '😔', color: '#f59e0b', bgColor: '#fef3c7' },
+  'Depressed': { emoji: '😢', color: '#ef4444', bgColor: '#fee2e2' }
+};
 
 export default function Journal() {
   const [entries, setEntries] = useState([]);
@@ -47,24 +56,6 @@ export default function Journal() {
     
     fetchEntries();
   }, [navigate]);
-  
-  // Helper function to get color based on mood
-  const getMoodBadgeColor = (mood) => {
-    switch(mood) {
-      case "Very Happy": 
-        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
-      case "Happy": 
-        return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";
-      case "Neutral": 
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
-      case "Sad": 
-        return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400";
-      case "Depressed": 
-        return "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400";
-      default: 
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300";
-    }
-  };
   const handleAddEntry = async () => {
     if (text.trim() !== "") {
       const token = localStorage.getItem('token');
@@ -154,142 +145,289 @@ export default function Journal() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br rounded-3xl from-[#E6E6FA]/30 to-white dark:from-[#1A1A1A] dark:to-black">
-      <Card>
-        <CardHeader>
-          <CardTitle>Daily Journal</CardTitle>
-          <CardDescription>How are you feeling today?</CardDescription>
-        </CardHeader>
-        <CardContent>          <div className="mb-6">
-            <Label className="text-base font-medium mb-3 block">How are you feeling today?</Label>
-            <RadioGroup 
-              value={mood} 
-              onValueChange={setMood} 
-              className="flex flex-wrap gap-3"
-            >
-              {moodOptions.map((option) => (
-                <div key={option} className="flex items-center space-x-2">
-                  <RadioGroupItem value={option} id={option} />
-                  <Label htmlFor={option} className="cursor-pointer">{option}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
-          <textarea
-            className="w-full border rounded p-2 mb-2"
-            rows={3}
-            placeholder="Write your thoughts, gratitude, or reflections..."
-            value={text}
-            onChange={e => setText(e.target.value)}
-          />
-          <Button 
-          onClick={handleAddEntry} 
-          className="w-full mt-2" 
-          disabled={isLoading}
-        >
-          {isLoading ? 'Saving...' : 'Add Entry'}
-        </Button>
-        </CardContent>
-      </Card>
-      
-      {error && (
-        <div className="mt-4 p-3 bg-red-100 text-red-800 rounded">
-          {error}
-        </div>
-      )}
-      
-      <div className="mt-8 space-y-4">
-        {isLoading && entries.length === 0 && <p className="text-center">Loading entries...</p>}
-        {!isLoading && entries.length === 0 && <p className="text-center text-muted-foreground">No entries yet.</p>}
-        {entries.map((entry) => (
-          <Card key={entry._id || Math.random()}>
-            <CardHeader className="flex justify-between items-start">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
+        <div className="w-full mx-auto px-4 sm:px-6 py-4 sm:py-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => navigate('/dashboard')}
+                className="hover:bg-gray-100 rounded-lg h-9 w-9 p-0"
+              >
+                <ArrowLeft className="h-5 w-5 text-gray-600" />
+              </Button>
               <div>
-                <CardTitle>{new Date(entry.date).toLocaleDateString()}</CardTitle>
-                <CardDescription className="flex items-center gap-2">
-                  <span>Mood:</span> 
-                  <span className={`px-2 py-0.5 rounded-full text-sm ${getMoodBadgeColor(entry.mood)}`}>
-                    {entry.mood}
-                  </span>
-                </CardDescription>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2">
+                  <BookOpen className="h-7 w-7 text-purple-600" />
+                  Daily Journal
+                </h1>
+                <p className="text-sm text-gray-600 mt-1">
+                  {entries.length} {entries.length === 1 ? 'entry' : 'entries'} written
+                </p>
               </div>
-              {editingEntry !== entry._id ? (
-                <div className="flex gap-2">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="text-blue-500 hover:bg-blue-50 hover:text-blue-600"
-                    onClick={() => handleEditEntry(entry)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="text-red-500 hover:bg-red-50 hover:text-red-600"
-                    onClick={() => entry._id && handleDeleteEntry(entry._id)}
-                  >
-                    <Trash className="h-4 w-4" />
-                  </Button>
-                </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="w-full mx-auto px-4 py-8 space-y-6">
+        {/* New Entry Card */}
+        <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader className="border-b border-gray-100 bg-white">
+            <CardTitle className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+              <Plus className="h-5 w-5 text-purple-600" />
+              New Journal Entry
+            </CardTitle>
+            <CardDescription className="text-gray-600">Share your thoughts and feelings</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6 bg-white space-y-6">
+            {/* Mood Selection */}
+            <div>
+              <Label className="text-base font-medium mb-3 block text-gray-900">How are you feeling?</Label>
+              <RadioGroup 
+                value={mood} 
+                onValueChange={setMood} 
+                className="grid grid-cols-2 sm:grid-cols-5 gap-3"
+              >
+                {moodOptions.map((option) => {
+                  const config = moodConfig[option];
+                  return (
+                    <div key={option} className="relative">
+                      <RadioGroupItem value={option} id={option} className="sr-only peer" />
+                      <Label 
+                        htmlFor={option} 
+                        className={`
+                          flex flex-col items-center justify-center gap-2 p-3 rounded-lg cursor-pointer
+                          border-2 transition-all duration-200
+                          ${mood === option 
+                            ? 'border-current shadow-sm scale-105' 
+                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          }
+                        `}
+                        style={mood === option ? { 
+                          borderColor: config.color,
+                          backgroundColor: config.bgColor 
+                        } : {}}
+                      >
+                        <span className="text-2xl">{config.emoji}</span>
+                        <span className="text-xs font-medium text-gray-700">{option}</span>
+                      </Label>
+                    </div>
+                  );
+                })}
+              </RadioGroup>
+            </div>
+
+            {/* Text Entry */}
+            <div>
+              <Label className="text-base font-medium mb-2 block text-gray-900">Your Thoughts</Label>
+              <Textarea
+                className="resize-none min-h-[150px] border-gray-300 focus:border-purple-500 focus:ring-purple-500 bg-white rounded-lg"
+                placeholder="Write your thoughts, gratitude, or reflections..."
+                value={text}
+                onChange={e => setText(e.target.value)}
+              />
+            </div>
+
+            {/* Submit Button */}
+            <Button 
+              onClick={handleAddEntry} 
+              className="w-full h-11 bg-purple-600 hover:bg-purple-700 text-white shadow-sm hover:shadow-md transition-all" 
+              disabled={isLoading || !text.trim()}
+            >
+              {isLoading ? (
+                <span className="flex items-center gap-2">
+                  <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  Saving...
+                </span>
               ) : (
-                <div className="flex gap-2">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="text-green-500 hover:bg-green-50 hover:text-green-600"
-                    onClick={() => entry._id && handleUpdateEntry(entry._id)}
-                    disabled={isLoading}
-                  >
-                    <Check className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="text-gray-500 hover:bg-gray-50 hover:text-gray-600"
-                    onClick={handleCancelEdit}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+                <span className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Entry
+                </span>
               )}
-            </CardHeader>
-            <CardContent>
-              {editingEntry !== entry._id ? (
-                <p>{entry.text}</p>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <Label className="text-base font-medium mb-2 block">Edit Mood</Label>
-                    <RadioGroup 
-                      value={editMood} 
-                      onValueChange={setEditMood} 
-                      className="flex flex-wrap gap-2"
-                    >
-                      {moodOptions.map((option) => (
-                        <div key={option} className="flex items-center space-x-1">
-                          <RadioGroupItem value={option} id={`edit-${option}`} />
-                          <Label htmlFor={`edit-${option}`} className="cursor-pointer text-sm">{option}</Label>
+            </Button>
+          </CardContent>
+        </Card>
+        
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 p-4 rounded-lg text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+        
+        {/* Journal Entries */}
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-purple-600" />
+            Your Entries
+          </h2>
+          
+          {isLoading && entries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-12 bg-white rounded-lg border border-gray-200">
+              <div className="h-12 w-12 border-4 border-gray-200 border-t-purple-600 rounded-full animate-spin mb-4"></div>
+              <p className="text-gray-600">Loading entries...</p>
+            </div>
+          ) : !isLoading && entries.length === 0 ? (
+            <Card className="border border-gray-200 bg-white">
+              <CardContent className="p-12 text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-100 mb-4">
+                  <BookOpen className="h-8 w-8 text-purple-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No entries yet</h3>
+                <p className="text-gray-600">Start journaling to track your thoughts and feelings.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {entries.map((entry) => {
+                const config = moodConfig[entry.mood] || moodConfig['Neutral'];
+                const isEditing = editingEntry === entry._id;
+                
+                return (
+                  <Card 
+                    key={entry._id || Math.random()}
+                    className="border border-gray-200 shadow-sm hover:shadow-md transition-all bg-white overflow-hidden group"
+                  >
+                    {/* Colored Top Bar */}
+                    <div className="h-1" style={{ backgroundColor: config.color }}></div>
+                    
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div 
+                            className="text-2xl p-2 rounded-lg"
+                            style={{ backgroundColor: config.bgColor }}
+                          >
+                            {config.emoji}
+                          </div>
+                          <div>
+                            <CardTitle className="text-sm font-semibold text-gray-900">
+                              {new Date(entry.date).toLocaleDateString('en-US', {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </CardTitle>
+                            <CardDescription 
+                              className="text-sm font-medium mt-0.5"
+                              style={{ color: config.color }}
+                            >
+                              {entry.mood}
+                            </CardDescription>
+                          </div>
                         </div>
-                      ))}
-                    </RadioGroup>
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-text" className="text-base font-medium mb-2 block">Edit Entry</Label>
-                    <textarea
-                      id="edit-text"
-                      className="w-full border rounded p-2"
-                      rows={3}
-                      value={editText}
-                      onChange={e => setEditText(e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                        
+                        {!isEditing ? (
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50"
+                              onClick={() => handleEditEntry(entry)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
+                              onClick={() => entry._id && handleDeleteEntry(entry._id)}
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0 text-green-600 hover:bg-green-50"
+                              onClick={() => entry._id && handleUpdateEntry(entry._id)}
+                              disabled={isLoading}
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0 text-gray-600 hover:bg-gray-100"
+                              onClick={handleCancelEdit}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </CardHeader>
+                    
+                    <CardContent className="pt-0">
+                      {!isEditing ? (
+                        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                          {entry.text}
+                        </p>
+                      ) : (
+                        <div className="space-y-4">
+                          <div>
+                            <Label className="text-sm font-medium mb-2 block text-gray-900">Edit Mood</Label>
+                            <RadioGroup 
+                              value={editMood} 
+                              onValueChange={setEditMood} 
+                              className="grid grid-cols-5 gap-2"
+                            >
+                              {moodOptions.map((option) => {
+                                const config = moodConfig[option];
+                                return (
+                                  <div key={option} className="relative">
+                                    <RadioGroupItem value={option} id={`edit-${option}`} className="sr-only peer" />
+                                    <Label 
+                                      htmlFor={`edit-${option}`} 
+                                      className={`
+                                        flex flex-col items-center gap-1 p-2 rounded-lg cursor-pointer
+                                        border-2 transition-all
+                                        ${editMood === option 
+                                          ? 'border-current' 
+                                          : 'border-gray-200 hover:border-gray-300'
+                                        }
+                                      `}
+                                      style={editMood === option ? { 
+                                        borderColor: config.color,
+                                        backgroundColor: config.bgColor 
+                                      } : {}}
+                                    >
+                                      <span className="text-xl">{config.emoji}</span>
+                                      <span className="text-xs font-medium text-gray-700 hidden xl:block">{option}</span>
+                                    </Label>
+                                  </div>
+                                );
+                              })}
+                            </RadioGroup>
+                          </div>
+                          <div>
+                            <Label htmlFor="edit-text" className="text-sm font-medium mb-2 block text-gray-900">Edit Entry</Label>
+                            <Textarea
+                              id="edit-text"
+                              className="resize-none min-h-[100px] border-gray-300 focus:border-purple-500 focus:ring-purple-500 rounded-lg"
+                              value={editText}
+                              onChange={e => setEditText(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }

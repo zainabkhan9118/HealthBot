@@ -21,6 +21,8 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/journal', require('./routes/journal'));
 app.use('/api/check-ins', require('./routes/checkIn'));
 app.use('/api/chat', require('./routes/chat'));
+app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/progress', require('./routes/progress'));
 
 app.get('/', (req, res) => {
   res.send('HealthBot Authentication API is running');
