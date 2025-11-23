@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { signup } from '@/api/auth';
+import AuthContext from '@/context/AuthContext';
 
 const Signup = () => {
   const [name, setName] = useState('');
@@ -14,6 +15,12 @@ const Signup = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const navigate = useNavigate();
+  const { isAuthenticated, loading } = useContext(AuthContext);
+  
+  // Redirect if already authenticated
+  if (!loading && isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
   
   const validateEmail = (email) => /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email);
 

@@ -1,9 +1,9 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { signin } from '@/api/auth';
 import AuthContext from '@/context/AuthContext';
 
@@ -13,7 +13,16 @@ const Login = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const navigate = useNavigate();
-  const { login } = useContext(AuthContext);
+  const location = useLocation();
+  const { login, isAuthenticated, loading } = useContext(AuthContext);
+  
+  // Get the page user was trying to access before being redirected to login
+  const from = location.state?.from?.pathname || '/dashboard';
+  
+  // Redirect if already authenticated
+  if (!loading && isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
   
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,9 +32,10 @@ const Login = () => {
       const res = await signin({ email, password });
       if (res.success && res.token) {
         login(res.token, { email });
-        setSuccess('Welcome back! Redirecting you to your dashboard…');
+        setSuccess('Welcome back! Redirecting you...');
         setTimeout(() => {
-          navigate('/dashboard');
+          // Redirect to the page they were trying to access, or dashboard as fallback
+          navigate(from, { replace: true });
         }, 1400);
       } else {
         setError(res.message || 'Login failed');
