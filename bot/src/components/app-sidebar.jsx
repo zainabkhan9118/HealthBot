@@ -24,31 +24,31 @@ const items = [
     title: "Dashboard",
     url: "/dashboard",
     icon: Home,
-    description: "Overview & insights",
+    // description: "Overview & insights",
   },
   {
     title: "Chat",
     url: "/dashboard/chat",
     icon: MessageSquare,
-    description: "Talk with Emma",
+    // description: "Talk with Emma",
   },
   {
     title: "Journal",
     url: "/dashboard/journal",
     icon: BookOpen,
-    description: "Daily reflections",
+    // description: "Daily reflections",
   },
   {
     title: "Resources",
     url: "/dashboard/resources",
     icon: Search,
-    description: "Helpful materials",
+    // description: "Helpful materials",
   },
   {
     title: "Progress",
     url: "/dashboard/progress",
     icon: LineChart,
-    description: "Track your journey",
+    // description: "Track your journey",
   },
 ]
 
@@ -68,14 +68,30 @@ const secondaryItems = [
 export function AppSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user } = useContext(AuthContext)
+  const { user, logout } = useContext(AuthContext)
 
   // Handle logout
   const handleLogout = (e) => {
     e.preventDefault();
-    localStorage.clear();
-    console.log("User logged out");
-    navigate("/login", { replace: true });
+    
+
+    
+    try {
+      // Clear all localStorage data
+      localStorage.clear();
+      
+      // Call logout from AuthContext to update state
+      logout();
+      
+      console.log("User logged out successfully");
+      
+      // Navigate to login page and prevent going back
+      navigate("/login", { replace: true });
+    } catch (error) {
+      console.error("Error during logout:", error);
+      // Still navigate to login even if there's an error
+      navigate("/login", { replace: true });
+    }
   }
 
   // Check if route is active
