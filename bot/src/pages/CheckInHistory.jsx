@@ -6,23 +6,34 @@ import {
   Moon,
   Zap,
   AlertCircle,
-  ChevronDown,
-  ChevronRight,
   Calendar,
-  Trash2
+  Trash2,
+  TrendingUp,
+  Sparkles,
+  Clock,
+  Plus,
+  Filter
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { getCheckIns, deleteCheckIn } from '@/api/checkIns';
-import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+
+const moodConfig = {
+  'Very Happy': { emoji: '😄', color: '#10b981', bgColor: '#d1fae5', borderColor: '#10b981' },
+  'Happy': { emoji: '🙂', color: '#3b82f6', bgColor: '#dbeafe', borderColor: '#3b82f6' },
+  'Neutral': { emoji: '😐', color: '#8b5cf6', bgColor: '#ede9fe', borderColor: '#8b5cf6' },
+  'Sad': { emoji: '😔', color: '#f59e0b', bgColor: '#fef3c7', borderColor: '#f59e0b' },
+  'Depressed': { emoji: '😢', color: '#ef4444', bgColor: '#fee2e2', borderColor: '#ef4444' }
+};
 
 export default function CheckInHistory() {
   const navigate = useNavigate();
   const [checkIns, setCheckIns] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [expandedId, setExpandedId] = useState(null);
   const [deleteInProgress, setDeleteInProgress] = useState(false);
+  const [filterMood, setFilterMood] = useState('all');
 
   useEffect(() => {
     const fetchCheckIns = async () => {
@@ -51,20 +62,11 @@ export default function CheckInHistory() {
     fetchCheckIns();
   }, [navigate]);
 
-  const toggleExpand = (id) => {
-    if (expandedId === id) {
-      setExpandedId(null);
-    } else {
-      setExpandedId(id);
-    }
-  };
-
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
+      weekday: 'short',
+      month: 'short',
       day: 'numeric'
     });
   };
@@ -77,15 +79,14 @@ export default function CheckInHistory() {
     });
   };
 
-  const getMoodEmoji = (mood) => {
-    switch (mood) {
-      case 'Very Happy': return '😄';
-      case 'Happy': return '🙂';
-      case 'Neutral': return '😐';
-      case 'Sad': return '😔';
-      case 'Depressed': return '😢';
-      default: return '❓';
-    }
+  const formatFullDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
   };
 
   const handleDeleteCheckIn = async (id) => {
@@ -111,178 +112,231 @@ export default function CheckInHistory() {
     }
   };
 
-  const groupCheckInsByDate = () => {
-    const grouped = {};
-
-    checkIns.forEach(checkIn => {
-      const date = new Date(checkIn.date).toLocaleDateString();
-      if (!grouped[date]) {
-        grouped[date] = [];
-      }
-      grouped[date].push(checkIn);
-    });
-
-    return Object.entries(grouped).map(([date, items]) => ({
-      date,
-      items,
-    }));
-  };
+  // Filter check-ins and sort by date (most recent first)
+  const filteredCheckIns = (filterMood === 'all' 
+    ? checkIns 
+    : checkIns.filter(c => c.mood === filterMood)
+  ).sort((a, b) => new Date(b.date) - new Date(a.date));
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#E6E6FA]/30 to-white text-[#9B7EDC] font-sans">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm p-6 flex justify-between items-center sticky top-0 z-10 border-b border-[#E6E6FA]">
-        <div className="flex items-center">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => navigate('/dashboard')}
-            className="mr-2"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-2xl font-bold text-[#7C5DC7]">Check-In History</h1>
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
+        <div className="w-full mx-auto px-4 sm:px-6 py-4 sm:py-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => navigate('/dashboard')}
+                className="hover:bg-gray-100 rounded-lg h-9 w-9 p-0"
+              >
+                <ArrowLeft className="h-5 w-5 text-gray-600" />
+              </Button>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                  Check-In History
+                </h1>
+                <p className="text-sm text-gray-600 mt-1">
+                  {checkIns.length} {checkIns.length === 1 ? 'entry' : 'entries'} recorded
+                </p>
+              </div>
+            </div>
+            <Button 
+              onClick={() => navigate('/check-in')} 
+              className="bg-purple-600 hover:bg-purple-700 text-white shadow-sm hover:shadow-md transition-all"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Check-In
+            </Button>
+          </div>
         </div>
-        <Button 
-          onClick={() => navigate('/check-in')} 
-          size="sm" 
-          className="bg-[#9B7EDC] hover:bg-[#8B6AD1] text-white"
-        >
-          <Heart className="h-4 w-4 mr-2" />
-          New Check-In
-        </Button>
       </header>
 
       {/* Main Content */}
-      <main className="px-4 py-8 max-w-3xl mx-auto space-y-6">
+      <main className="px-4 py-8 max-w-7xl mx-auto space-y-6">
         {isLoading ? (
-          <div className="flex justify-center p-8">
-            <div className="animate-spin h-8 w-8 border-4 border-[#9B7EDC] border-t-transparent rounded-full"></div>
+          <div className="flex flex-col items-center justify-center p-16">
+            <div className="h-12 w-12 border-4 border-gray-200 border-t-purple-600 rounded-full animate-spin"></div>
+            <p className="mt-4 text-gray-600">Loading your check-ins...</p>
           </div>
         ) : error ? (
-          <Card className="border border-red-200 bg-red-50 text-red-600">
-            <CardContent className="p-6">
-              <p>{error}</p>
+          <Card className="border border-red-200 shadow-sm bg-red-50">
+            <CardContent className="p-8 text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
+                <AlertCircle className="h-8 w-8 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-red-900 mb-2">Oops! Something went wrong</h3>
+              <p className="text-red-700 mb-6">{error}</p>
               <Button 
                 variant="outline" 
                 onClick={() => window.location.reload()}
-                className="mt-4"
+                className="border-red-300 hover:bg-red-100"
               >
                 Try Again
               </Button>
             </CardContent>
           </Card>
         ) : checkIns.length === 0 ? (
-          <Card className="border border-[#E6E6FA] text-center">
-            <CardContent className="p-8">
-              <div className="flex flex-col items-center">
-                <Heart className="h-12 w-12 text-[#9B7EDC] mb-4" />
-                <h2 className="text-xl font-semibold text-[#8B6AD1] mb-2">No Check-Ins Yet</h2>
-                <p className="text-[#9B7EDC] mb-6">Start tracking your mental health journey with daily check-ins.</p>
-                <Button 
-                  onClick={() => navigate('/check-in')} 
-                  className="bg-[#9B7EDC] hover:bg-[#8B6AD1]"
-                >
-                  Create Your First Check-In
-                </Button>
+          <Card className="border border-gray-200 shadow-sm bg-white">
+            <CardContent className="p-12 text-center">
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-purple-100 mb-6">
+                <Heart className="h-10 w-10 text-purple-600" />
               </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">Start Your Journey</h2>
+              <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                Begin tracking your mental wellness with daily check-ins and watch your progress grow.
+              </p>
+              <Button 
+                onClick={() => navigate('/check-in')} 
+                className="bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Your First Check-In
+              </Button>
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-6">
-            {groupCheckInsByDate().map((group) => (
-              <div key={group.date} className="space-y-3">
-                <div className="flex items-center">
-                  <Calendar className="h-5 w-5 text-[#8B6AD1] mr-2" />
-                  <h2 className="text-lg font-medium text-[#8B6AD1]">
-                    {new Date(group.date).toLocaleDateString('en-US', {
-                      weekday: 'long',
-                      month: 'long',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
-                  </h2>
+          <>
+            {/* Filter Bar */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-5 w-5 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-700">Filter by mood:</span>
                 </div>
-                <div className="space-y-3">
-                  {group.items.map((checkIn) => (
-                    <Card 
-                      key={checkIn._id} 
-                      className={`border border-[#E6E6FA] transition-all ${expandedId === checkIn._id ? 'shadow-md' : ''}`}
-                    >
-                      <div 
-                        className="flex items-center justify-between p-4 cursor-pointer"
-                        onClick={() => toggleExpand(checkIn._id)}
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    variant={filterMood === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFilterMood('all')}
+                    className={filterMood === 'all' ? 'bg-purple-600 hover:bg-purple-700' : 'border-gray-300 hover:bg-gray-100'}
+                  >
+                    All Moods
+                  </Button>
+                  {Object.keys(moodConfig).map((mood) => {
+                    const config = moodConfig[mood];
+                    return (
+                      <Button
+                        key={mood}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFilterMood(mood)}
+                        className={`border-2 transition-all ${
+                          filterMood === mood 
+                            ? 'border-current shadow-sm' 
+                            : 'border-gray-300 hover:bg-gray-50'
+                        }`}
+                        style={filterMood === mood ? { 
+                          borderColor: config.color,
+                          backgroundColor: config.bgColor,
+                          color: config.color
+                        } : {}}
                       >
-                        <div className="flex items-center space-x-3">
-                          <div className="text-2xl">{getMoodEmoji(checkIn.mood)}</div>
+                        <span className="mr-1.5">{config.emoji}</span>
+                        {mood}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Check-ins List */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredCheckIns.map((checkIn) => {
+                const config = moodConfig[checkIn.mood] || moodConfig['Neutral'];
+                return (
+                  <Card 
+                    key={checkIn._id} 
+                    className="border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 bg-white overflow-hidden group"
+                  >
+                    {/* Colored Top Bar */}
+                    <div 
+                      className="h-1" 
+                      style={{ backgroundColor: config.color }}
+                    ></div>
+                    
+                    <CardContent className="p-5">
+                      {/* Header */}
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div 
+                            className="text-3xl p-2.5 rounded-xl group-hover:scale-110 transition-transform"
+                            style={{ backgroundColor: config.bgColor }}
+                          >
+                            {config.emoji}
+                          </div>
                           <div>
-                            <p className="font-medium text-[#8B6AD1]">{checkIn.mood}</p>
-                            <p className="text-xs text-[#9B7EDC]">{formatTime(checkIn.date)}</p>
+                            <h3 
+                              className="font-bold text-lg"
+                              style={{ color: config.color }}
+                            >
+                              {checkIn.mood}
+                            </h3>
+                            <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                              <Calendar className="h-3 w-3" />
+                              {formatDate(checkIn.date)}
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-gray-500">
+                              <Clock className="h-3 w-3" />
+                              {formatTime(checkIn.date)}
+                            </div>
                           </div>
                         </div>
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
-                          className="h-8 w-8 p-0 rounded-full"
+                          className="h-8 w-8 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleDeleteCheckIn(checkIn._id)}
+                          disabled={deleteInProgress}
                         >
-                          {expandedId === checkIn._id ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
 
-                      {expandedId === checkIn._id && (
-                        <div className="px-4 pb-4">
-                          <Separator className="my-2 bg-[#E6E6FA]" />
-                          
-                          <div className="grid grid-cols-3 gap-4 mb-4">
-                            <div className="text-center p-3 bg-[#E6E6FA]/30 rounded-lg">
-                              <Moon className="h-4 w-4 mx-auto mb-1 text-[#9B7EDC]" />
-                              <p className="text-xs text-[#9B7EDC]">Sleep</p>
-                              <p className="font-medium text-[#8B6AD1]">{checkIn.metrics?.sleep || 'N/A'} hrs</p>
-                            </div>
-                            
-                            <div className="text-center p-3 bg-[#E6E6FA]/30 rounded-lg">
-                              <Zap className="h-4 w-4 mx-auto mb-1 text-[#9B7EDC]" />
-                              <p className="text-xs text-[#9B7EDC]">Energy</p>
-                              <p className="font-medium text-[#8B6AD1]">{checkIn.metrics?.energy || 'N/A'}/10</p>
-                            </div>
-                            
-                            <div className="text-center p-3 bg-[#E6E6FA]/30 rounded-lg">
-                              <AlertCircle className="h-4 w-4 mx-auto mb-1 text-[#9B7EDC]" />
-                              <p className="text-xs text-[#9B7EDC]">Anxiety</p>
-                              <p className="font-medium text-[#8B6AD1]">{checkIn.metrics?.anxiety || 'N/A'}/10</p>
-                            </div>
-                          </div>
-                          
-                          {checkIn.notes && (
-                            <div className="mb-4">
-                              <p className="text-sm text-[#9B7EDC] mb-1">Notes</p>
-                              <p className="bg-[#E6E6FA]/20 p-3 rounded-lg text-sm">{checkIn.notes}</p>
-                            </div>
-                          )}
-                          
-                          <div className="flex justify-end space-x-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteCheckIn(checkIn._id);
-                              }}
-                              disabled={deleteInProgress}
-                            >
-                              <Trash2 className="h-4 w-4 mr-1" />
-                              Delete
-                            </Button>
-                          </div>
+                      {/* Metrics */}
+                      <div className="grid grid-cols-3 gap-2 mb-4">
+                        <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2.5 text-center">
+                          <Moon className="h-4 w-4 mx-auto mb-1 text-indigo-600" />
+                          <p className="text-xs text-gray-600">Sleep</p>
+                          <p className="font-bold text-sm text-indigo-700">
+                            {checkIn.metrics?.sleep || 'N/A'}h
+                          </p>
+                        </div>
+                        
+                        <div className="bg-amber-50 border border-amber-100 rounded-lg p-2.5 text-center">
+                          <Zap className="h-4 w-4 mx-auto mb-1 text-amber-600" />
+                          <p className="text-xs text-gray-600">Energy</p>
+                          <p className="font-bold text-sm text-amber-700">
+                            {checkIn.metrics?.energy || 'N/A'}/10
+                          </p>
+                        </div>
+                        
+                        <div className="bg-rose-50 border border-rose-100 rounded-lg p-2.5 text-center">
+                          <AlertCircle className="h-4 w-4 mx-auto mb-1 text-rose-600" />
+                          <p className="text-xs text-gray-600">Anxiety</p>
+                          <p className="font-bold text-sm text-rose-700">
+                            {checkIn.metrics?.anxiety || 'N/A'}/10
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Notes */}
+                      {checkIn.notes && (
+                        <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                          <p className="text-xs text-gray-500 mb-1 font-medium">Notes</p>
+                          <p className="text-sm text-gray-700 line-clamp-3">
+                            {checkIn.notes}
+                          </p>
                         </div>
                       )}
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </>
         )}
       </main>
     </div>

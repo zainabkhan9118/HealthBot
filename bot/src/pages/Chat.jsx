@@ -63,12 +63,18 @@ export default function Chat() {
   };
 
   // Connect to Flask backend with Ollama integration
-  const sendMessageToBackend = async (userMessage) => {
+  const sendMessageToBackend = async (userMessage, previousMessages = []) => {
     try {
+      // Get the last 5 messages to provide conversation context
+      const recentMessages = previousMessages.slice(-5);
+      
       const response = await fetch('http://127.0.0.1:5000/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage })
+        body: JSON.stringify({ 
+          message: userMessage,
+          conversation_history: recentMessages
+        })
       });
       
       if (!response.ok) {
@@ -134,8 +140,8 @@ export default function Chat() {
         console.log('Not saving user message - user not authenticated');
       }
       
-      // Send message to backend for processing
-      const { content, sentiment, sources } = await sendMessageToBackend(input);
+      // Send message to backend for processing along with conversation history
+      const { content, sentiment, sources } = await sendMessageToBackend(input, activeMessages);
       
       // Update state with assistant's response
       const assistantMessage = { 
@@ -211,7 +217,7 @@ export default function Chat() {
       <div className="flex flex-col flex-1 ">
         {/* Header - sticky */}
         <header className="sticky top-0 bg-white/80 backdrop-blur-sm p-6 border-b border-[#E6E6FA] z-10">
-          <div className="max-w-6xl mx-auto flex justify-between items-center">
+          <div className="w-full mx-auto flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <Bot className="h-6 w-6 text-[#9B7EDC]" />
               <h1 className="text-xl font-semibold text-[#8B6AD1]">Chat with MIND</h1>
@@ -249,7 +255,7 @@ export default function Chat() {
         </header>
         {/* Chat Messages - scrollable */}
         <div className="flex-1 overflow-y-auto p-4 pb-24">
-          <div className="max-w-4xl mx-auto space-y-4">
+          <div className="w-full mx-auto space-y-4">
             {isLoadingHistory ? (
               <div className="flex justify-center items-center h-32">
                 <div className="flex space-x-2">
