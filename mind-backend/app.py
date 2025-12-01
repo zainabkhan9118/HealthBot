@@ -20,7 +20,7 @@ gemini_model = genai.GenerativeModel('gemini-2.0-flash')
 
 # Load emotion detection model (your pretrained model)
 print("Loading emotion detection model...")
-MODEL_PATH = "./results/xlmr_dair6_e5/checkpoint-18555"
+MODEL_PATH = "zainabkhan9118/RomanUrduEmotions"
 emotion_classifier = pipeline("text-classification", model=MODEL_PATH, top_k=None)
 print("✓ Emotion model loaded!")
 
