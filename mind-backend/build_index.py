@@ -1,6 +1,10 @@
 from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
+import os
+
+# Create data directory if it doesn't exist
+os.makedirs("data", exist_ok=True)
 
 documents = [
     "Practice deep breathing to calm yourself.",
@@ -14,7 +18,10 @@ embeddings = model.encode(documents, convert_to_tensor=False)
 index = faiss.IndexFlatL2(len(embeddings[0]))
 index.add(np.array(embeddings))
 
-faiss.write_index(index, "mind_index.faiss")
-with open("mind_docs.txt", "w") as f:
+faiss.write_index(index, "data/mind_index.faiss")
+with open("data/mind_docs.txt", "w") as f:
     for doc in documents:
         f.write(doc + "\n")
+
+print("✓ FAISS index and documents saved to data/ folder")
+
