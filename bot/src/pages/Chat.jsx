@@ -68,7 +68,7 @@ export default function Chat() {
       // Get the last 5 messages to provide conversation context
       const recentMessages = previousMessages.slice(-5);
       
-      const response = await fetch('http://127.0.0.1:5000/api/chat', {
+      const response = await fetch('https://healthbot-1-fod4.onrender.com/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
