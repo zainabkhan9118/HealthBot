@@ -7,7 +7,7 @@ import os
 import re
 from typing import List, Dict, Any
 import time
-from transformers import pipeline
+import requests
 import google.generativeai as genai
 
 app = Flask(__name__)
@@ -18,11 +18,14 @@ GEMINI_API_KEY = "AIzaSyDuYBF6ssG55Dpz9ViO0simME4zVhtw7ts"
 genai.configure(api_key=GEMINI_API_KEY)
 gemini_model = genai.GenerativeModel('gemini-2.0-flash')
 
-# Load emotion detection model (your pretrained model)
-print("Loading emotion detection model...")
-MODEL_PATH = "zainabkhan9118/RomanUrduEmotions"
-emotion_classifier = pipeline("text-classification", model=MODEL_PATH, top_k=None)
-print("✓ Emotion model loaded!")
+# Configure emotion detection to use Hugging Face Inference API (no local model load)
+print("Configuring emotion detection (Hugging Face Inference API)...")
+HF_MODEL = os.environ.get("HF_MODEL", "zainabkhan9118/RomanUrduEmotions")
+HF_TOKEN = os.environ.get("HF_TOKEN")
+if HF_TOKEN:
+    print(f"✓ Using Hugging Face model: {HF_MODEL} (via Inference API)")
+else:
+    print("⚠️ HF_TOKEN not set. Inference API will be disabled; detect_emotions will return neutral.")
 
 # Load FAISS index and documents
 def load_resources():
@@ -57,33 +60,57 @@ def search_faiss(query: str, k: int = 3) -> List[str]:
 # EMOTION DETECTION (Simple and Clean)
 # ============================================================================
 
+def call_hf_inference(text: str, timeout: int = 30):
+    """Call the Hugging Face Inference API and return the parsed JSON result."""
+    if not HF_TOKEN:
+        raise RuntimeError("HF_TOKEN not set")
+    url = f"https://api-inference.huggingface.co/models/{HF_MODEL}"
+    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+    payload = {"inputs": text, "options": {"wait_for_model": True}}
+    resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
+    resp.raise_for_status()
+    return resp.json()
+
+
 def detect_emotions(text: str) -> Dict[str, Any]:
-    """Detect emotions using your pretrained model."""
+    """Detect emotions using HF Inference API (fallback to neutral).
+
+    Returns the same shape as previous implementation: {sentiment, emotions, confidence}
+    """
     if len(text.split()) < 3:
         return {"sentiment": "neutral", "emotions": [], "confidence": 0.0}
-    
-    try:
-        results = emotion_classifier(text)[0]
-        sorted_emotions = sorted(results, key=lambda x: x['score'], reverse=True)
-        
-        top_emotion = sorted_emotions[0]['label']
-        top_score = sorted_emotions[0]['score']
-        
-        # Map to sentiment
-        if top_emotion in ['sadness', 'anger', 'fear']:
-            sentiment = "negative"
-        elif top_emotion in ['joy', 'love']:
-            sentiment = "positive"
-        else:
-            sentiment = "neutral"
-        
-        return {
-            "sentiment": sentiment,
-            "emotions": [top_emotion],
-            "confidence": round(top_score, 2)
-        }
-    except:
-        return {"sentiment": "neutral", "emotions": [], "confidence": 0.0}
+
+    if HF_TOKEN:
+        try:
+            resp = call_hf_inference(text)
+            # resp is usually a list of dicts like [{"label":..., "score":...}]
+            if isinstance(resp, dict) and resp.get("error"):
+                return {"sentiment": "neutral", "emotions": [], "confidence": 0.0}
+
+            results = resp if isinstance(resp, list) else resp[0] if resp else []
+            if not results:
+                return {"sentiment": "neutral", "emotions": [], "confidence": 0.0}
+
+            sorted_emotions = sorted(results, key=lambda x: x.get("score", 0), reverse=True)
+            top = sorted_emotions[0]
+            top_emotion = top.get("label", "")
+            top_score = float(top.get("score", 0.0))
+
+            le = top_emotion.lower()
+            if any(k in le for k in ["sad", "anger", "fear"]):
+                sentiment = "negative"
+            elif any(k in le for k in ["joy", "love", "happy"]):
+                sentiment = "positive"
+            else:
+                sentiment = "neutral"
+
+            return {"sentiment": sentiment, "emotions": [top_emotion], "confidence": round(top_score, 2)}
+        except Exception as e:
+            print("HF inference error:", e)
+            return {"sentiment": "neutral", "emotions": [], "confidence": 0.0}
+
+    # No HF_TOKEN configured: return neutral to avoid loading local model on Render
+    return {"sentiment": "neutral", "emotions": [], "confidence": 0.0}
 
 # ============================================================================
 # LANGUAGE DETECTION
