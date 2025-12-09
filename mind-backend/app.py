@@ -11,7 +11,13 @@ import requests
 import google.generativeai as genai
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={
+    r"/api/*": {
+        "origins": ["https://bot-sooty-sigma.vercel.app", "http://localhost:*"],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
 
 # Google Gemini API configuration (load from environment variable)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
