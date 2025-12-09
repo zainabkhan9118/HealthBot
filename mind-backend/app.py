@@ -13,10 +13,16 @@ import google.generativeai as genai
 app = Flask(__name__)
 CORS(app)
 
-# Google Gemini API configuration
-GEMINI_API_KEY = "AIzaSyDuYBF6ssG55Dpz9ViO0simME4zVhtw7ts"
-genai.configure(api_key=GEMINI_API_KEY)
-gemini_model = genai.GenerativeModel('gemini-2.0-flash')
+# Google Gemini API configuration (load from environment variable)
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    print("⚠️ WARNING: GEMINI_API_KEY not set in environment variables!")
+    genai.configure(api_key="dummy_key")  # Placeholder to prevent crashes
+    gemini_model = None
+else:
+    genai.configure(api_key=GEMINI_API_KEY)
+    gemini_model = genai.GenerativeModel('gemini-2.0-flash')
+    print("✓ Gemini API configured")
 
 # Configure emotion detection to use Hugging Face Inference API (no local model load)
 print("Configuring emotion detection (Hugging Face Inference API)...")
@@ -150,6 +156,10 @@ def detect_language(text: str) -> str:
 
 def query_gemini(prompt: str, system_prompt: str, max_tokens: int = 200) -> str:
     """Query Gemini API."""
+    if not gemini_model:
+        print("Gemini model not available (API key not set)")
+        return ""
+    
     try:
         full_prompt = f"{system_prompt}\n\n{prompt}"
         
