@@ -27,34 +27,46 @@ if HF_TOKEN:
 else:
     print("⚠️ HF_TOKEN not set. Inference API will be disabled; detect_emotions will return neutral.")
 
-# Load FAISS index and documents
+# Load FAISS index and documents (optional - graceful fallback if not present)
 def load_resources():
-    if os.path.exists("data/mind_index.faiss"):
-        index = faiss.read_index("data/mind_index.faiss")
-    else:
-        raise FileNotFoundError("FAISS index not found in data/")
+    index = None
+    documents = []
+    model = None
     
-    if os.path.exists("data/mind_docs.txt"):
-        with open("data/mind_docs.txt", "r") as f:
-            documents = [line.strip() for line in f.readlines()]
+    if os.path.exists("data/mind_index.faiss") and os.path.exists("data/mind_docs.txt"):
+        try:
+            index = faiss.read_index("data/mind_index.faiss")
+            with open("data/mind_docs.txt", "r") as f:
+                documents = [line.strip() for line in f.readlines()]
+            model = SentenceTransformer("all-MiniLM-L6-v2")
+            print(f"✓ FAISS index loaded with {len(documents)} documents")
+        except Exception as e:
+            print(f"⚠️ Failed to load FAISS resources: {e}")
+            print("   RAG functionality will be disabled, but app will continue.")
     else:
-        raise FileNotFoundError("Documents file not found in data/")
+        print("⚠️ FAISS index not found. RAG functionality disabled (app will use Gemini without RAG context).")
     
-    model = SentenceTransformer("all-MiniLM-L6-v2")
     return index, documents, model
 
 index, documents, model = load_resources()
 
 def search_faiss(query: str, k: int = 3) -> List[str]:
-    """Search FAISS for relevant mental health techniques."""
-    query_embedding = model.encode([query], convert_to_tensor=False)
-    distances, indices = index.search(np.array(query_embedding), k)
+    """Search FAISS for relevant mental health techniques (returns empty list if FAISS not available)."""
+    if index is None or model is None or not documents:
+        return []
     
-    results = []
-    for idx in indices[0]:
-        if idx < len(documents):
-            results.append(documents[idx])
-    return results[:k]
+    try:
+        query_embedding = model.encode([query], convert_to_tensor=False)
+        distances, indices = index.search(np.array(query_embedding), k)
+        
+        results = []
+        for idx in indices[0]:
+            if idx < len(documents):
+                results.append(documents[idx])
+        return results[:k]
+    except Exception as e:
+        print(f"FAISS search error: {e}")
+        return []
 
 # ============================================================================
 # EMOTION DETECTION (Simple and Clean)
@@ -316,7 +328,9 @@ def health():
         "status": "online",
         "gemini_api": gemini_status,
         "model": "gemini-2.0-flash",
-        "faiss_docs": len(documents)
+        "faiss_docs": len(documents) if documents else 0,
+        "faiss_enabled": index is not None,
+        "hf_inference_enabled": HF_TOKEN is not None
     })
 
 @app.route('/', methods=['GET'])
